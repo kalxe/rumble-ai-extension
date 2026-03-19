@@ -6,7 +6,7 @@
 # RumbleTipAI
 
 <a href="#download--install"><img alt="Download" src="https://img.shields.io/badge/-Download-85EA2D?style=for-the-badge&logo=googlechrome&logoColor=white"/></a>
-<a href="https://github.com/kalxe/rumble-ai-extension/blob/main/rumble-autotip-extension/openclaw-skill/SKILL.md"><img alt="OpenClaw Skill" src="https://img.shields.io/badge/-OpenClaw_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
+<a href="https://github.com/kalxe/rumble-ai-extension/blob/main/openclaw-skill/SKILL.md"><img alt="OpenClaw Skill" src="https://img.shields.io/badge/-OpenClaw_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
 <a href="#architecture"><img alt="Architecture" src="https://img.shields.io/badge/-Architecture-0078D4?style=for-the-badge&logo=diagramsdotnet&logoColor=white"/></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/-Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white"/></a>
 
@@ -17,15 +17,25 @@ Powered by **Tether WDK** &nbsp;|&nbsp; **GPT-4o-mini** &nbsp;|&nbsp; **Polygon,
 
 </div>
 
----
+<br/>
 
 <div align="center">
-<img alt="Dashboard" title="Dashboard — real-time stats and wallet overview" src="img/dashboard.png" width="95%"/>
-<br/><br/>
-<img alt="Rules" title="Rules — create conditional tipping rules per creator" src="img/rules.png" width="47%"/>
-<img alt="Recent Tips" title="Recent Tips — on-chain transaction history" src="img/recent_tip.png" width="47%"/>
-<br/><br/>
-<img alt="Settings" title="Settings — wallet, AI, and network configuration" src="img/setting.png" width="47%"/>
+  <img alt="Auto-Tip Creators While You Watch" src="img/banner.png" width="100%"/>
+</div>
+
+<br/>
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center" width="50%"><img alt="Dashboard" src="img/dashboard.png" width="280"/><br/><sub><b>Dashboard</b> — Stats & Wallet</sub></td>
+    <td align="center" width="50%"><img alt="Rules" src="img/rules.png" width="280"/><br/><sub><b>Rules</b> — Tipping Configuration</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img alt="Recent Tips" src="img/recent_tip.png" width="280"/><br/><sub><b>History</b> — On-chain Transactions</sub></td>
+    <td align="center" width="50%"><img alt="Settings" src="img/setting.png" width="280"/><br/><sub><b>Settings</b> — Wallet & Network</sub></td>
+  </tr>
+</table>
 </div>
 
 ---
