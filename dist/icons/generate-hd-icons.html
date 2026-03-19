@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RumbleTipAI — HD Icon Generator</title>
+  <style>
+    body { background: #1a1a2e; color: #fff; font-family: system-ui; padding: 40px; text-align: center; }
+    h1 { margin-bottom: 8px; }
+    p { color: #888; margin-bottom: 32px; }
+    .icons { display: flex; gap: 40px; justify-content: center; align-items: flex-end; flex-wrap: wrap; }
+    .icon-box { text-align: center; }
+    .icon-box canvas { border: 1px solid #333; border-radius: 8px; }
+    .icon-box label { display: block; margin-top: 8px; color: #aaa; font-size: 14px; }
+    button { margin-top: 12px; padding: 8px 20px; background: #00d4aa; color: #000; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+    button:hover { background: #00e6b8; }
+    .instructions { margin-top: 48px; color: #666; font-size: 13px; max-width: 600px; margin-left: auto; margin-right: auto; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>RumbleTipAI Icon Generator</h1>
+  <p>Click each "Download" button, then replace the files in <code>icons/</code> folder.</p>
+
+  <div class="icons">
+    <div class="icon-box">
+      <canvas id="c128" width="512" height="512"></canvas>
+      <label>128×128 (rendered at 512×512)</label>
+      <button onclick="download('c128', 'icon128.png', 128)">Download 128px</button>
+    </div>
+    <div class="icon-box">
+      <canvas id="c48" width="192" height="192"></canvas>
+      <label>48×48 (rendered at 192×192)</label>
+      <button onclick="download('c48', 'icon48.png', 48)">Download 48px</button>
+    </div>
+    <div class="icon-box">
+      <canvas id="c16" width="128" height="128"></canvas>
+      <label>16×16 (rendered at 128×128)</label>
+      <button onclick="download('c16', 'icon16.png', 16)">Download 16px</button>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h3>Instructions:</h3>
+    <ol>
+      <li>Click all three "Download" buttons above</li>
+      <li>Move the downloaded files to: <code>icons/icon16.png</code>, <code>icons/icon48.png</code>, <code>icons/icon128.png</code></li>
+      <li>Also copy them to: <code>dist/icons/</code></li>
+      <li>Reload the extension in <code>chrome://extensions</code></li>
+    </ol>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const s = canvas.width; // actual canvas size (high-res)
+      const r = s * 0.1875;  // corner radius ratio
+
+      // === Background ===
+      const bgGrad = ctx.createLinearGradient(0, 0, s, s);
+      bgGrad.addColorStop(0, '#0f1923');
+      bgGrad.addColorStop(1, '#0a0e14');
+      roundRect(ctx, 0, 0, s, s, r);
+      ctx.fillStyle = bgGrad;
+      ctx.fill();
+
+      // === Outer glow ring ===
+      ctx.beginPath();
+      ctx.arc(s/2, s/2, s * 0.38, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 212, 170, 0.12)';
+      ctx.lineWidth = s * 0.025;
+      ctx.stroke();
+
+      // === Inner ring ===
+      ctx.beginPath();
+      ctx.arc(s/2, s/2, s * 0.30, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 212, 170, 0.20)';
+      ctx.lineWidth = s * 0.018;
+      ctx.stroke();
+
+      // === Tether symbol background circle ===
+      const circGrad = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s * 0.25);
+      circGrad.addColorStop(0, 'rgba(0, 212, 170, 0.10)');
+      circGrad.addColorStop(1, 'rgba(0, 212, 170, 0.02)');
+      ctx.beginPath();
+      ctx.arc(s/2, s/2, s * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = circGrad;
+      ctx.fill();
+
+      // === Tether ₮ Symbol (drawn manually for crispness) ===
+      const cx = s / 2;
+      const cy = s / 2;
+
+      // Create gradient for symbol
+      const symGrad = ctx.createLinearGradient(cx - s*0.15, cy - s*0.18, cx + s*0.15, cy + s*0.18);
+      symGrad.addColorStop(0, '#00e6b8');
+      symGrad.addColorStop(1, '#00d4aa');
+
+      ctx.fillStyle = symGrad;
+      ctx.strokeStyle = symGrad;
+
+      // Horizontal bar (top)
+      const barW = s * 0.32;
+      const barH = s * 0.045;
+      const barY = cy - s * 0.155;
+      roundRect(ctx, cx - barW/2, barY, barW, barH, barH/2);
+      ctx.fill();
+
+      // Vertical bar (center)
+      const vBarW = s * 0.050;
+      const vBarH = s * 0.30;
+      const vBarY = barY + barH * 0.5;
+      roundRect(ctx, cx - vBarW/2, vBarY, vBarW, vBarH, vBarW/2);
+      ctx.fill();
+
+      // === Small accent dots (like a tech/crypto feel) ===
+      ctx.fillStyle = 'rgba(0, 212, 170, 0.3)';
+      // Top-left dot
+      ctx.beginPath();
+      ctx.arc(s * 0.18, s * 0.18, s * 0.015, 0, Math.PI * 2);
+      ctx.fill();
+      // Bottom-right dot
+      ctx.beginPath();
+      ctx.arc(s * 0.82, s * 0.82, s * 0.015, 0, Math.PI * 2);
+      ctx.fill();
+      // Top-right small
+      ctx.beginPath();
+      ctx.arc(s * 0.80, s * 0.20, s * 0.010, 0, Math.PI * 2);
+      ctx.fill();
+      // Bottom-left small
+      ctx.beginPath();
+      ctx.arc(s * 0.20, s * 0.80, s * 0.010, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function download(canvasId, filename, targetSize) {
+      const srcCanvas = document.getElementById(canvasId);
+
+      // Create a target-size canvas for final output
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = targetSize;
+      outCanvas.height = targetSize;
+      const outCtx = outCanvas.getContext('2d');
+
+      // Enable high-quality downscaling
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+      outCtx.drawImage(srcCanvas, 0, 0, targetSize, targetSize);
+
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = outCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Draw all icons
+    drawIcon(document.getElementById('c128'));
+    drawIcon(document.getElementById('c48'));
+    drawIcon(document.getElementById('c16'));
+  </script>
+</body>
+</html>

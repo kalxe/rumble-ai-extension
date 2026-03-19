@@ -6,7 +6,7 @@
 # RumbleTipAI
 
 <a href="#download--install"><img alt="Download" src="https://img.shields.io/badge/-Download-85EA2D?style=for-the-badge&logo=googlechrome&logoColor=white"/></a>
-<a href="https://github.com/kalxe/rumble-extension/blob/main/rumble-autotip-extension/openclaw-skill/SKILL.md"><img alt="OpenClaw Skill" src="https://img.shields.io/badge/-OpenClaw_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
+<a href="https://github.com/kalxe/rumble-ai-extension/blob/main/rumble-autotip-extension/openclaw-skill/SKILL.md"><img alt="OpenClaw Skill" src="https://img.shields.io/badge/-OpenClaw_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
 <a href="#architecture"><img alt="Architecture" src="https://img.shields.io/badge/-Architecture-0078D4?style=for-the-badge&logo=diagramsdotnet&logoColor=white"/></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/-Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white"/></a>
 
@@ -83,7 +83,7 @@ Creator receives tip in their Rumble Wallet
 ### Build from Source
 
 ```bash
-git clone https://github.com/kalxe/rumble-extension.git
+git clone https://github.com/kalxe/rumble-ai-extension.git
 cd rumble-ai/rumble-autotip-extension
 npm install
 npm run build
@@ -299,7 +299,7 @@ const RPC_PROVIDERS = {
 
 Fixed — the extension now prioritizes JSON-LD structured data and uses regex cleanup to strip noise.
 
-### **In any case, [open an issue](https://github.com/kalxe/rumble-extension/issues) and we'll help!**
+### **In any case, [open an issue](https://github.com/kalxe/rumble-ai-extension/issues) and we'll help!**
 
 </details>
 
@@ -312,7 +312,7 @@ Built for the **Tether Hackathon Galactica: WDK Edition 1** (2026).
 | Requirement | Status |
 |-------------|--------|
 | Uses WDK by Tether | ✅ `@tetherto/wdk`, `wdk-wallet-evm`, `wdk-wallet-btc` |
-| Public GitHub repo | ✅ [github.com/kalxe/rumble-extension](https://github.com/kalxe/rumble-extension) |
+| Public GitHub repo | ✅ [github.com/kalxe/rumble-ai-extension](https://github.com/kalxe/rumble-ai-extension) |
 | Apache 2.0 license | ✅ See [LICENSE](LICENSE) |
 | Clear run/test instructions | ✅ This README + in-extension Testing tab |
 | Agent architecture | ✅ AI-powered autonomous agent with LLM reasoning |
@@ -354,7 +354,7 @@ Licensed under the [Apache License, Version 2.0](LICENSE).
 
 <div align="center">
 
-**Powered by [Tether WDK](https://github.com/kalxe/rumble-extension) ₮**
+**Powered by [Tether WDK](https://github.com/kalxe/rumble-ai-extension) ₮**
 
 *Built for the Tether Hackathon Galactica: WDK Edition 1 — 2026*
 
