@@ -1,0 +1,7 @@
+{
+  "name": "rumble-autotip",
+  "version": "1.0.0",
+  "description": "Control Rumble Auto-Tip Chrome extension — auto-tip creators based on watch time using Tether WDK",
+  "skills": ["SKILL.md"],
+  "tags": ["rumble", "tether", "wdk", "tipping", "crypto", "usdt", "agents"]
+}

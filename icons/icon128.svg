@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f1923"/>
+      <stop offset="100%" style="stop-color:#0a0a0f"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e6b8"/>
+      <stop offset="100%" style="stop-color:#00d4aa"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bgGrad)"/>
+  <circle cx="64" cy="64" r="48" fill="none" stroke="#00d4aa" stroke-width="3" opacity="0.2"/>
+  <circle cx="64" cy="64" r="38" fill="none" stroke="#00d4aa" stroke-width="2" opacity="0.3"/>
+  <text x="64" y="82" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="url(#accentGrad)" text-anchor="middle">₮</text>
+</svg>

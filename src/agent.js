@@ -1,0 +1,410 @@
+// ═══════════════════════════════════════════════════════════
+// agent.js — AI-Powered Auto-Tip Agent
+// ═══════════════════════════════════════════════════════════
+// Autonomous agent that combines rule-based logic with LLM
+// intelligence to make smart tipping decisions.
+//
+// Agent Architecture:
+//   1. Rule Engine — User-defined rules (rate, min time, limits)
+//   2. AI Reasoning — LLM analyzes context for intelligent decisions
+//   3. Spending Guardian — Enforces budgets and prevents overspend
+//   4. Decision Logger — Full audit trail of agent reasoning
+//
+// The agent operates autonomously: once rules are set, it
+// monitors watch sessions and triggers payments without
+// human intervention.
+
+import { StorageHelper } from './storage.js';
+
+const storage = new StorageHelper();
+
+// ─── AI AGENT CONFIGURATION ─────────────────────────
+const AI_CONFIG = {
+  // OpenAI-compatible endpoint (user configurable)
+  apiUrl: 'https://api.openai.com/v1/chat/completions',
+  model: 'gpt-4o-mini',
+  // System prompt that defines agent personality and behavior
+  systemPrompt: `You are RumbleTipAI, an autonomous tipping agent for Rumble.com video creators.
+Your job is to analyze viewing sessions and make intelligent tipping decisions.
+
+You receive context about:
+- Creator name and content
+- Watch duration and engagement
+- User's tipping rules and budget
+- Historical tipping patterns
+
+You must respond with a JSON object:
+{
+  "shouldTip": true/false,
+  "confidence": 0.0-1.0,
+  "adjustedAmount": number or null,
+  "reasoning": "brief explanation",
+  "sentiment": "positive/neutral/negative"
+}
+
+Decision guidelines:
+- Respect user's rules as the baseline
+- Consider engagement quality (longer watch = more engaged)
+- Be conservative with spending (protect user's budget)
+- Suggest amount adjustments if context warrants (e.g., bonus for loyal creators)
+- Never exceed maxTipAmount or daily limits
+- If watch time barely meets minimum, suggest lower confidence`,
+};
+
+export class AgentEngine {
+
+  constructor() {
+    this.apiKey = null;       // Set via settings
+    this.aiEnabled = false;   // AI features toggle
+    this.decisionLog = [];    // Audit trail
+  }
+
+  // ─── INITIALIZE AI ────────────────────────────────
+  async initAI() {
+    const settings = await storage.getSettings();
+    this.apiKey = settings.openaiApiKey || null;
+    this.aiEnabled = !!this.apiKey && settings.aiAgentEnabled !== false;
+    
+    if (this.aiEnabled) {
+      console.log('[Agent] AI reasoning enabled (model:', AI_CONFIG.model, ')');
+    } else {
+      console.log('[Agent] Running in rule-based mode (no API key)');
+    }
+  }
+
+  // ─── SHOULD TIP? (Main Decision Function) ────────
+  // The core autonomous decision function.
+  // Combines rule-based checks with optional AI reasoning.
+  //
+  // Decision Pipeline:
+  //   Step 1: Pre-checks (already tipped? rule exists?)
+  //   Step 2: Rule evaluation (watch time, amount calc)
+  //   Step 3: Budget verification (daily limit, session cap)
+  //   Step 4: AI reasoning (optional - adjusts confidence/amount)
+  //   Step 5: Final decision with full reasoning
+  //
+  // @returns {
+  //   shouldTip: boolean,
+  //   amount: number,
+  //   token: string,
+  //   network: string,
+  //   reason: string,
+  //   aiReasoning: object|null,
+  //   confidence: number,
+  // }
+  async shouldTip({ creatorAddress, creatorName, watchMinutes, videoId }) {
+    const startTime = Date.now();
+    
+    // ── Step 1: Pre-checks ──
+    const session = await storage.getWatchSession(videoId);
+    if (session?.tipped) {
+      return this.skipQuiet({ shouldTip: false, reason: 'already_tipped' });
+    }
+
+    if (!creatorAddress) {
+      return this.skipQuiet({
+        shouldTip: false,
+        reason: 'no_creator_address',
+        note: 'Creator wallet address not detected yet. Open the tip modal on the video page to reveal it.'
+      });
+    }
+
+    // ── Step 2: Rule matching ──
+    const rule = await this.findMatchingRule(creatorAddress);
+    if (!rule) {
+      return this.logDecision({ shouldTip: false, reason: 'no_matching_rule' });
+    }
+
+    // ── Step 3: Minimum watch time ──
+    if (watchMinutes < rule.minWatchMinutes) {
+      return this.skipQuiet({
+        shouldTip: false,
+        reason: 'below_minimum_watch_time',
+        current: watchMinutes,
+        required: rule.minWatchMinutes
+      });
+    }
+
+    // ── Step 4: Calculate base tip amount ──
+    let tipAmount = watchMinutes * rule.ratePerMinute;
+    tipAmount = Math.min(tipAmount, rule.maxTipAmount);
+    tipAmount = Math.round(tipAmount * 100) / 100;
+
+    if (tipAmount <= 0) {
+      return this.logDecision({ shouldTip: false, reason: 'amount_zero' });
+    }
+
+    // ── Step 5: Budget verification ──
+    const settings = await storage.getSettings();
+    const todaySpent = await storage.getTodaySpending();
+
+    if (todaySpent + tipAmount > settings.maxDailySpend) {
+      return this.logDecision({
+        shouldTip: false,
+        reason: 'daily_limit_reached',
+        todaySpent,
+        dailyLimit: settings.maxDailySpend,
+        wouldNeed: todaySpent + tipAmount
+      });
+    }
+
+    // ── Step 6: AI Reasoning (if enabled) ──
+    let aiReasoning = null;
+    let confidence = 1.0;
+
+    if (this.aiEnabled) {
+      try {
+        aiReasoning = await this.getAIDecision({
+          creatorName,
+          creatorAddress,
+          watchMinutes,
+          baseAmount: tipAmount,
+          rule,
+          todaySpent,
+          dailyLimit: settings.maxDailySpend,
+          tipHistory: await storage.getTipHistory(10),
+        });
+
+        confidence = aiReasoning.confidence || 1.0;
+
+        // AI can adjust amount (within rule bounds)
+        if (aiReasoning.adjustedAmount !== null && aiReasoning.adjustedAmount !== undefined) {
+          const adjusted = Math.min(aiReasoning.adjustedAmount, rule.maxTipAmount);
+          if (adjusted > 0 && adjusted <= rule.maxTipAmount) {
+            tipAmount = Math.round(adjusted * 100) / 100;
+          }
+        }
+
+        // AI can veto the tip (low confidence)
+        if (!aiReasoning.shouldTip && confidence < 0.3) {
+          return this.logDecision({
+            shouldTip: false,
+            reason: 'ai_low_confidence',
+            aiReasoning,
+            confidence,
+          });
+        }
+
+        console.log(`[Agent AI] Reasoning: ${aiReasoning.reasoning}`);
+        console.log(`[Agent AI] Confidence: ${confidence}`);
+      } catch (err) {
+        // AI failure is non-blocking — fallback to rule-based
+        console.warn('[Agent AI] AI reasoning failed, using rule-based:', err.message);
+        aiReasoning = { error: err.message, fallback: 'rule_based' };
+      }
+    }
+
+    // ── Step 7: Final decision ──
+    const decision = {
+      shouldTip: true,
+      amount: tipAmount,
+      token: rule.token,
+      network: rule.network,
+      ruleId: rule.id,
+      confidence,
+      aiReasoning,
+      formula: `${watchMinutes.toFixed(1)} min × ${rule.ratePerMinute} ${rule.token}/min = ${tipAmount} ${rule.token}`,
+      decisionTimeMs: Date.now() - startTime,
+    };
+
+    return this.logDecision(decision);
+  }
+
+  // ─── AI DECISION ENGINE ───────────────────────────
+  // Calls LLM to get intelligent reasoning about the tip.
+  // This adds a layer of AI intelligence on top of rules.
+  async getAIDecision(context) {
+    if (!this.apiKey) {
+      return { shouldTip: true, confidence: 1.0, reasoning: 'No API key — rule-based mode' };
+    }
+
+    const userMessage = `Analyze this tipping decision:
+Creator: ${context.creatorName}
+Watch Time: ${context.watchMinutes.toFixed(1)} minutes
+Base Tip Amount: $${context.baseAmount} ${context.rule.token}
+Rule: $${context.rule.ratePerMinute}/min, min ${context.rule.minWatchMinutes} min, max $${context.rule.maxTipAmount}
+Today's Spending: $${context.todaySpent} / $${context.dailyLimit} daily limit
+Recent Tips: ${context.tipHistory.length} tips in history
+
+Should I send this tip? Respond with JSON only.`;
+
+    try {
+      const response = await fetch(AI_CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: AI_CONFIG.model,
+          messages: [
+            { role: 'system', content: AI_CONFIG.systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          max_tokens: 200,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      // Parse JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+
+      return { shouldTip: true, confidence: 0.8, reasoning: content };
+    } catch (error) {
+      console.warn('[Agent AI] LLM call failed:', error.message);
+      // Graceful fallback — never block tipping due to AI failure
+      return {
+        shouldTip: true,
+        confidence: 1.0,
+        adjustedAmount: null,
+        reasoning: `AI unavailable (${error.message}), using rule-based decision`,
+        sentiment: 'neutral',
+      };
+    }
+  }
+
+  // ─── DECISION LOGGER ──────────────────────────────
+  // Maintains audit trail of all agent decisions
+  logDecision(decision) {
+    const entry = {
+      ...decision,
+      timestamp: Date.now(),
+    };
+    
+    this.decisionLog.push(entry);
+    
+    // Keep last 100 decisions in memory
+    if (this.decisionLog.length > 100) {
+      this.decisionLog = this.decisionLog.slice(-100);
+    }
+
+    const action = decision.shouldTip ? '✅ TIP' : '⏭ SKIP';
+    console.log(`[Agent] ${action}: ${decision.reason || decision.formula || 'approved'}`);
+
+    return decision;
+  }
+
+  // ─── SKIP QUIET (reduce log spam) ──────────────────
+  // For repeated skip reasons (no address, below time), only log once per reason
+  skipQuiet(decision) {
+    const key = decision.reason;
+    if (this._lastSkipReason !== key) {
+      this._lastSkipReason = key;
+      console.log(`[Agent] ⏭ SKIP: ${key}${decision.note ? ' — ' + decision.note : ''}`);
+    }
+    return decision;
+  }
+
+  // ─── GET DECISION LOG ─────────────────────────────
+  getDecisionLog(limit = 20) {
+    return this.decisionLog.slice(-limit);
+  }
+
+  // ─── FIND MATCHING RULE ─────────────────────────
+  // Cari aturan yang cocok untuk kreator ini.
+  // Prioritas: aturan spesifik > wildcard (*)
+  async findMatchingRule(creatorAddress) {
+    const rules = await this.getRules();
+
+    if (!rules || rules.length === 0) return null;
+
+    // Cari aturan spesifik untuk kreator ini
+    const specificRule = rules.find(
+      r => r.isActive && r.creatorAddress?.toLowerCase() === creatorAddress?.toLowerCase()
+    );
+    if (specificRule) return specificRule;
+
+    // Cari wildcard rule (berlaku untuk semua kreator)
+    const wildcardRule = rules.find(
+      r => r.isActive && r.creatorAddress === '*'
+    );
+    return wildcardRule || null;
+  }
+
+  // ─── CREATE RULE ────────────────────────────────
+  async createRule(data) {
+    const rules = await this.getRules();
+
+    // Validasi
+    if (!data.ratePerMinute || data.ratePerMinute <= 0 || data.ratePerMinute > 10) {
+      return { error: 'ratePerMinute must be between 0.001 and 10' };
+    }
+    if (!data.maxTipAmount || data.maxTipAmount <= 0 || data.maxTipAmount > 1000) {
+      return { error: 'maxTipAmount must be between 0.01 and 1000' };
+    }
+    // Validate token (per hackathon requirements: USDT, USAT, XAUT, BTC)
+    if (!['USDT', 'USAT', 'XAUT', 'BTC'].includes(data.token || 'USDT')) {
+      return { error: 'Invalid token. Use: USDT, USAT, XAUT, or BTC' };
+    }
+    if (!['ethereum', 'polygon', 'arbitrum', 'bitcoin'].includes(data.network || 'polygon')) {
+      return { error: 'Invalid network. Use: ethereum, polygon, arbitrum, or bitcoin' };
+    }
+
+    // Deactivate existing rule for the same creator
+    const existingIdx = rules.findIndex(
+      r => r.isActive && r.creatorAddress?.toLowerCase() === (data.creatorAddress || '*').toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      rules[existingIdx].isActive = false;
+    }
+
+    const newRule = {
+      id: `rule_${Date.now()}`,
+      creatorAddress: data.creatorAddress || '*',
+      creatorName: data.creatorName || (data.creatorAddress === '*' ? 'All Creators' : 'Unknown'),
+      token: data.token || 'USDT',
+      network: data.network || 'polygon',
+      ratePerMinute: data.ratePerMinute || 0.02,
+      minWatchMinutes: data.minWatchMinutes || 3,
+      maxTipAmount: data.maxTipAmount || 5.00,
+      isActive: true,
+      createdAt: Date.now()
+    };
+
+    rules.push(newRule);
+    await chrome.storage.local.set({ tipRules: rules });
+
+    console.log('[Agent] Rule created:', newRule);
+    return { success: true, rule: newRule };
+  }
+
+  // ─── GET RULES ──────────────────────────────────
+  async getRules() {
+    const data = await chrome.storage.local.get('tipRules');
+    return data.tipRules || [];
+  }
+
+  // ─── DELETE RULE ────────────────────────────────
+  async deleteRule(ruleId) {
+    const rules = await this.getRules();
+    const idx = rules.findIndex(r => r.id === ruleId);
+    if (idx >= 0) {
+      rules[idx].isActive = false;
+      await chrome.storage.local.set({ tipRules: rules });
+      return { success: true };
+    }
+    return { error: 'Rule not found' };
+  }
+
+  // ─── UPDATE RULE ────────────────────────────────
+  async updateRule(ruleId, updates) {
+    const rules = await this.getRules();
+    const idx = rules.findIndex(r => r.id === ruleId);
+    if (idx >= 0) {
+      rules[idx] = { ...rules[idx], ...updates };
+      await chrome.storage.local.set({ tipRules: rules });
+      return { success: true, rule: rules[idx] };
+    }
+    return { error: 'Rule not found' };
+  }
+}
