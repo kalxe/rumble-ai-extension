@@ -54,6 +54,9 @@ Powered by **Tether WDK** &nbsp;|&nbsp; **GPT-4o-mini** &nbsp;|&nbsp; **Polygon,
 - 🧠 **OpenClaw Skill** — orchestrate the agent via the OpenClaw AI platform
 - 🎨 **Dark Theme** — clean, modern interface that matches Rumble's aesthetic
 - ⛽ **Optimized for Polygon** — micro-tips at ~$0.001 gas cost
+- 🔀 **Smart Splits** — atomically split a single tip between creator, collaborators, and causes
+- 🏊 **Community Tipping Pool** — fans contribute to a shared pot; agent distributes when threshold is met
+- 🎯 **Event-Triggered Tips** — auto-tip on livestream milestones, subscriber goals, and chat reactions with cooldown protection
 
 ---
 
@@ -75,9 +78,11 @@ AI Agent evaluates:
 Tether WDK sends real on-chain tip
   → ERC-20 transfer on Polygon/Ethereum/Arbitrum
   → Or BTC transfer on Bitcoin
+  → Smart Split: atomic multi-recipient distribution
+  → Community Pool: batch payout when threshold met
       │
       ▼
-Creator receives tip in their Rumble Wallet
+Creator (+ collaborators / causes) receives tip in their Rumble Wallet
 ```
 
 ---
@@ -172,6 +177,50 @@ The AI can **adjust amounts** and **veto low-confidence decisions** — but it *
 
 ---
 
+## Advanced Tipping Features
+
+### Smart Splits
+
+Split a single tip atomically between multiple recipients — creator, collaborators, and causes.
+
+```
+Tip $1.00 USDT with split config:
+  ├─ 70% → Creator        ($0.70)
+  ├─ 20% → Collaborator   ($0.20)
+  └─ 10% → Charity cause  ($0.10)
+```
+
+All transfers execute in a single batch via the Tether WDK. If any transfer fails, the agent logs the partial result and retries the remainder.
+
+### Community Tipping Pool
+
+Multiple fans contribute to a shared pot managed by the agent. When the pool reaches a configurable threshold, the agent automatically distributes the accumulated amount to the creator.
+
+```
+Fan A contributes $0.50  ──┐
+Fan B contributes $0.30  ──┼──→  Pool: $1.20 / $2.00 threshold
+Fan C contributes $0.40  ──┘         │
+                                     │  threshold met
+                                     ▼
+                              Agent sends $2.00 to Creator
+```
+
+Pool state is persisted in Chrome Storage with per-creator tracking, contribution history, and automatic cleanup.
+
+### Event-Triggered Tipping
+
+The content script monitors livestream events and triggers tips automatically:
+
+| Event | Trigger | Example |
+|-------|---------|---------|
+| **Subscriber Milestone** | Creator hits N subscribers | Auto-tip $1 at 10K subs |
+| **Chat Reaction Spike** | High emoji/reaction velocity | Tip during hype moments |
+| **Livestream Moments** | Custom event patterns | Tip on raid, donation goal |
+
+Each event type has a **cooldown timer** (default 60s) to prevent duplicate tips. Events are logged with timestamps for audit.
+
+---
+
 ## Wallet Integration
 
 ### Tether WDK — Real SDK, No Mocks
@@ -232,6 +281,7 @@ The AI can **adjust amounts** and **veto low-confidence decisions** — but it *
 │  │ • LLM Reasoning   │  │ • Multi-token │  │ • Watch sessions │  │
 │  │ • Budget Guard    │  │ • Multi-chain │  │ • Tip history    │  │
 │  │ • Decision Logger │  │ • ERC-20 xfer │  │ • Daily spending │  │
+│  │ • Event Triggers  │  │ • Smart Split │  │ • Community Pool │  │
 │  └──────────────────┘  └───────────────┘  └──────────────────┘  │
 │                                                                  │
 │  Pipeline: Pre-checks → Rules → Amount → Budget → AI → Pay      │
@@ -347,12 +397,12 @@ Built for the **Tether Hackathon Galactica: WDK Edition 1** (2026).
 
 | Criteria | Our Implementation |
 |----------|-------------------|
-| **Agent Intelligence** | LLM-powered decision engine with confidence scoring, contextual analysis, graceful fallback |
-| **WDK Integration** | Multi-token, multi-network, real ERC-20 transfers, non-custodial HD wallet |
+| **Agent Intelligence** | LLM-powered decision engine with confidence scoring, contextual analysis, event-triggered tipping, graceful fallback |
+| **WDK Integration** | Multi-token, multi-network, real ERC-20 transfers, smart splits, non-custodial HD wallet |
 | **Technical Execution** | Clean MV3 architecture, webpack polyfills, separated concerns, full error handling |
-| **Agentic Payments** | Watch-time conditional payments, per-creator rules, daily budgets, autonomous execution |
-| **Originality** | First AI agent that autonomously tips Rumble creators based on engagement |
-| **Polish** | 4-tab popup UI, dark theme, tip notifications, TX explorer links, silent wallet detection |
+| **Agentic Payments** | Watch-time conditional payments, per-creator rules, daily budgets, community pools, autonomous execution |
+| **Originality** | First AI agent that autonomously tips Rumble creators based on engagement with smart splits and community pools |
+| **Polish** | 5-tab popup UI, dark theme, tip notifications, TX explorer links, community pool dashboard, silent wallet detection |
 
 ---
 
