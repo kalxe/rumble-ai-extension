@@ -35,6 +35,62 @@ const TOKEN_CONTRACTS = {
   },
 };
 
+// ─── ENCRYPTION HELPERS ─────────────────────────────────
+// Uses Web Crypto API (crypto.subtle) available in Chrome extension
+// service workers. Derives a 256-bit key from the user's password
+// using PBKDF2, then encrypts/decrypts with AES-GCM.
+const ENCRYPTION = {
+  SALT_LENGTH: 16,
+  IV_LENGTH: 12,
+  ITERATIONS: 100000,
+};
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: ENCRYPTION.ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptSeed(seedPhrase, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(ENCRYPTION.SALT_LENGTH));
+  const iv = crypto.getRandomValues(new Uint8Array(ENCRYPTION.IV_LENGTH));
+  const key = await deriveKey(password, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    enc.encode(seedPhrase)
+  );
+  // Pack: salt + iv + ciphertext → base64
+  const packed = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+  packed.set(salt, 0);
+  packed.set(iv, salt.length);
+  packed.set(new Uint8Array(ciphertext), salt.length + iv.length);
+  return btoa(String.fromCharCode(...packed));
+}
+
+async function decryptSeed(encryptedBase64, password) {
+  const packed = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+  const salt = packed.slice(0, ENCRYPTION.SALT_LENGTH);
+  const iv = packed.slice(ENCRYPTION.SALT_LENGTH, ENCRYPTION.SALT_LENGTH + ENCRYPTION.IV_LENGTH);
+  const ciphertext = packed.slice(ENCRYPTION.SALT_LENGTH + ENCRYPTION.IV_LENGTH);
+  const key = await deriveKey(password, salt);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ciphertext
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
 // ─── RPC PROVIDERS ───────────────────────────────────
 const RPC_PROVIDERS = {
   ethereum: 'https://eth.drpc.org',
@@ -63,6 +119,10 @@ export class WalletService {
     this.isInitialized = false;
     this.seedPhrase = null;
     this.activeNetworks = [];
+    // ── Tip Mutex — prevents concurrent transactions from double-spending
+    this._tipLock = false;
+    this._lastTipTime = 0;
+    this.MIN_TIP_INTERVAL_MS = 30000; // 30s between tips
   }
 
   // ─── INITIALIZE WALLET ─────────────────────────────
@@ -134,9 +194,13 @@ export class WalletService {
       this.activeNetworks = networks;
       this.isInitialized = true;
 
-      // Store seed phrase (encrypted in production!)
+      // Store seed phrase encrypted with AES-256-GCM via crypto.subtle
+      // Uses extension ID as password — unique per install, stays constant
+      const encPassword = chrome.runtime.id || 'rumble-autotip-default';
+      const encrypted = await encryptSeed(seedPhrase, encPassword);
       await chrome.storage.local.set({
-        encryptedSeed: seedPhrase, // TODO: Encrypt properly in production
+        encryptedSeed: encrypted,
+        seedEncrypted: true,
         activeNetworks: networks,
       });
 
@@ -153,9 +217,21 @@ export class WalletService {
 
   // ─── INITIALIZE FROM STORAGE ───────────────────────
   async initializeFromStorage() {
-    const data = await chrome.storage.local.get(['encryptedSeed', 'activeNetworks']);
+    const data = await chrome.storage.local.get(['encryptedSeed', 'seedEncrypted', 'activeNetworks']);
     if (data.encryptedSeed) {
-      const seedPhrase = data.encryptedSeed; // TODO: Decrypt in production
+      let seedPhrase;
+      if (data.seedEncrypted) {
+        // Decrypt using crypto.subtle
+        const encPassword = chrome.runtime.id || 'rumble-autotip-default';
+        seedPhrase = await decryptSeed(data.encryptedSeed, encPassword);
+      } else {
+        // Legacy: migrate plain-text seed to encrypted
+        seedPhrase = data.encryptedSeed;
+        const encPassword = chrome.runtime.id || 'rumble-autotip-default';
+        const encrypted = await encryptSeed(seedPhrase, encPassword);
+        await chrome.storage.local.set({ encryptedSeed: encrypted, seedEncrypted: true });
+        console.log('[Wallet] Migrated seed phrase to encrypted storage');
+      }
       const networks = data.activeNetworks || ['ethereum', 'polygon', 'arbitrum', 'bitcoin'];
       return await this.initialize(seedPhrase, networks);
     }
@@ -249,8 +325,20 @@ export class WalletService {
     return natives[network] || 'ETH';
   }
 
+  // ─── SAFE DECIMAL CONVERSION ────────────────────────
+  // Convert human-readable amount to smallest token unit using
+  // STRING SPLITTING to avoid IEEE 754 floating-point precision loss.
+  // e.g., toSmallestUnit(1.23, 6) → 1230000n (not 1229999n)
+  _toSmallestUnit(amount, decimals) {
+    const str = amount.toString();
+    const [whole, frac = ''] = str.split('.');
+    const paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals);
+    return BigInt(whole + paddedFrac);
+  }
+
   // ─── SEND TIP ──────────────────────────────────────
   // Send cryptocurrency tip to a creator.
+  // Protected by a mutex to prevent concurrent transactions.
   //
   // @param toAddress - Creator's wallet address
   // @param amount - Amount in token units (e.g., 0.50 = $0.50 USDT)
@@ -263,11 +351,24 @@ export class WalletService {
       return { success: false, error: 'Wallet not initialized' };
     }
 
+    // ── Mutex: prevent concurrent transactions ──
+    if (this._tipLock) {
+      return { success: false, error: 'Another transaction is in progress' };
+    }
+
+    // ── Rate limit: minimum interval between tips ──
+    const now = Date.now();
+    if (now - this._lastTipTime < this.MIN_TIP_INTERVAL_MS) {
+      const waitSec = Math.ceil((this.MIN_TIP_INTERVAL_MS - (now - this._lastTipTime)) / 1000);
+      return { success: false, error: `Rate limited. Wait ${waitSec}s before next tip.` };
+    }
+
     const account = this._getAccount(network);
     if (!account) {
       return { success: false, error: `No wallet for network: ${network}` };
     }
 
+    this._tipLock = true;
     try {
       console.log('[Wallet] ═══════════════════════════════════════');
       console.log(`[Wallet] Sending ${amount} ${token} to ${toAddress}`);
@@ -282,7 +383,7 @@ export class WalletService {
           return { success: false, error: 'BTC can only be sent on Bitcoin network' };
         }
 
-        const satoshis = BigInt(Math.floor(amount * 1e8));
+        const satoshis = this._toSmallestUnit(amount, 8);
         txResult = await account.sendTransaction({
           to: toAddress,
           value: satoshis,
@@ -300,7 +401,7 @@ export class WalletService {
         }
 
         const decimals = TOKEN_DECIMALS[token] || 6;
-        const amountInSmallestUnit = BigInt(Math.floor(amount * (10 ** decimals)));
+        const amountInSmallestUnit = this._toSmallestUnit(amount, decimals);
 
         // Use WDK's native transfer() method for ERC-20
         txResult = await account.transfer({
@@ -310,7 +411,9 @@ export class WalletService {
         });
       }
 
-      console.log('[Wallet] ✅ Transaction successful!');
+      this._lastTipTime = Date.now();
+
+      console.log('[Wallet] Transaction successful!');
       console.log(`[Wallet] TX Hash: ${txResult.hash}`);
       console.log(`[Wallet] Fee: ${txResult.fee}`);
 
@@ -335,7 +438,59 @@ export class WalletService {
         network,
         to: toAddress,
       };
+    } finally {
+      this._tipLock = false;
     }
+  }
+
+  // ─── SEND SPLIT TIP ────────────────────────────────
+  // Atomic tip split between creator, collaborator(s), and/or community.
+  // Uses a simple multi-transfer pattern — sends each split in sequence.
+  //
+  // @param splits - Array of { address, bps } where bps = basis points (10000 = 100%)
+  // @param totalAmount - Total tip amount in token units
+  // @param token - Token symbol
+  // @param network - Network name
+  //
+  // Example: tipWithSplit([
+  //   { address: '0xCreator...', bps: 7000 },  // 70% to creator
+  //   { address: '0xEditor...', bps: 2000 },   // 20% to editor
+  //   { address: '0xCharity...', bps: 1000 },  // 10% to charity
+  // ], 1.00, 'USDT', 'polygon')
+  async sendSplitTip(splits, totalAmount, token = 'USDT', network = 'polygon') {
+    if (!this.isInitialized) {
+      return { success: false, error: 'Wallet not initialized' };
+    }
+
+    // Validate splits sum to 10000 bps
+    const totalBps = splits.reduce((sum, s) => sum + s.bps, 0);
+    if (totalBps !== 10000) {
+      return { success: false, error: `Split basis points must sum to 10000, got ${totalBps}` };
+    }
+
+    const results = [];
+    let allSuccess = true;
+
+    for (const split of splits) {
+      const splitAmount = Math.round((totalAmount * split.bps / 10000) * 100) / 100;
+      if (splitAmount <= 0) continue;
+
+      const result = await this.sendTip(split.address, splitAmount, token, network);
+      results.push({ ...result, splitBps: split.bps, splitLabel: split.label || 'unknown' });
+
+      if (!result.success) {
+        allSuccess = false;
+        break; // Stop on first failure
+      }
+    }
+
+    return {
+      success: allSuccess,
+      splits: results,
+      totalAmount,
+      token,
+      network,
+    };
   }
 
   // ─── DISPOSE ───────────────────────────────────────

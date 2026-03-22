@@ -51805,22 +51805,219 @@ var StorageHelper = /*#__PURE__*/function () {
         return _getCreatorInfo.apply(this, arguments);
       }
       return getCreatorInfo;
-    }() // ─── RESET ALL DATA ───────────────────────────────
+    }() // ─── COMMUNITY TIPPING POOL ───────────────────────
   }, {
-    key: "resetAllData",
+    key: "getPoolInfo",
     value: function () {
-      var _resetAllData = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+      var _getPoolInfo = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+        var data;
         return _regenerator().w(function (_context13) {
           while (1) switch (_context13.n) {
             case 0:
               _context13.n = 1;
-              return chrome.storage.local.remove(['tipHistory', 'watchSessions', 'dailySpending', 'creatorCache', 'encryptedSeed', 'activeNetworks']);
+              return chrome.storage.local.get('tippingPool');
             case 1:
-              return _context13.a(2, {
-                success: true
+              data = _context13.v;
+              return _context13.a(2, data.tippingPool || {
+                contributions: [],
+                totalAmount: 0
               });
           }
         }, _callee13);
+      }));
+      function getPoolInfo() {
+        return _getPoolInfo.apply(this, arguments);
+      }
+      return getPoolInfo;
+    }()
+  }, {
+    key: "savePoolInfo",
+    value: function () {
+      var _savePoolInfo = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(pool) {
+        return _regenerator().w(function (_context14) {
+          while (1) switch (_context14.n) {
+            case 0:
+              _context14.n = 1;
+              return chrome.storage.local.set({
+                tippingPool: pool
+              });
+            case 1:
+              return _context14.a(2);
+          }
+        }, _callee14);
+      }));
+      function savePoolInfo(_x10) {
+        return _savePoolInfo.apply(this, arguments);
+      }
+      return savePoolInfo;
+    }() // ─── EVENT TRIGGERS ───────────────────────────────
+  }, {
+    key: "getEventTriggers",
+    value: function () {
+      var _getEventTriggers = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+        var data;
+        return _regenerator().w(function (_context15) {
+          while (1) switch (_context15.n) {
+            case 0:
+              _context15.n = 1;
+              return chrome.storage.local.get('eventTriggers');
+            case 1:
+              data = _context15.v;
+              return _context15.a(2, data.eventTriggers || [
+              // Default triggers
+              {
+                eventType: 'viewer_milestone',
+                tipAmount: 1.00,
+                token: 'USDT',
+                network: 'polygon',
+                cooldownMs: 300000,
+                // 5 min
+                isActive: false,
+                description: 'Tip when viewer count hits a milestone (100, 500, 1K, etc.)'
+              }, {
+                eventType: 'livestream_start',
+                tipAmount: 0.50,
+                token: 'USDT',
+                network: 'polygon',
+                cooldownMs: 3600000,
+                // 1 hour
+                isActive: false,
+                description: 'Tip when a followed creator goes live'
+              }, {
+                eventType: 'chat_spike',
+                tipAmount: 0.25,
+                token: 'USDT',
+                network: 'polygon',
+                cooldownMs: 120000,
+                // 2 min
+                isActive: false,
+                description: 'Tip during high chat activity moments'
+              }, {
+                eventType: 'video_completed',
+                tipAmount: 0.50,
+                token: 'USDT',
+                network: 'polygon',
+                cooldownMs: 0,
+                isActive: false,
+                description: 'Bonus tip when you watch a video to the end'
+              }]);
+          }
+        }, _callee15);
+      }));
+      function getEventTriggers() {
+        return _getEventTriggers.apply(this, arguments);
+      }
+      return getEventTriggers;
+    }()
+  }, {
+    key: "setEventTrigger",
+    value: function () {
+      var _setEventTrigger = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(triggerUpdate) {
+        var triggers, idx;
+        return _regenerator().w(function (_context16) {
+          while (1) switch (_context16.n) {
+            case 0:
+              _context16.n = 1;
+              return this.getEventTriggers();
+            case 1:
+              triggers = _context16.v;
+              idx = triggers.findIndex(function (t) {
+                return t.eventType === triggerUpdate.eventType;
+              });
+              if (idx >= 0) {
+                triggers[idx] = _objectSpread(_objectSpread({}, triggers[idx]), triggerUpdate);
+              } else {
+                triggers.push(triggerUpdate);
+              }
+              _context16.n = 2;
+              return chrome.storage.local.set({
+                eventTriggers: triggers
+              });
+            case 2:
+              return _context16.a(2, {
+                success: true,
+                triggers: triggers
+              });
+          }
+        }, _callee16, this);
+      }));
+      function setEventTrigger(_x11) {
+        return _setEventTrigger.apply(this, arguments);
+      }
+      return setEventTrigger;
+    }()
+  }, {
+    key: "getLastEventTip",
+    value: function () {
+      var _getLastEventTip = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(eventType, videoId) {
+        var data, log;
+        return _regenerator().w(function (_context17) {
+          while (1) switch (_context17.n) {
+            case 0:
+              _context17.n = 1;
+              return chrome.storage.local.get('eventTipLog');
+            case 1:
+              data = _context17.v;
+              log = data.eventTipLog || {};
+              return _context17.a(2, log["".concat(eventType, "_").concat(videoId)] || null);
+          }
+        }, _callee17);
+      }));
+      function getLastEventTip(_x12, _x13) {
+        return _getLastEventTip.apply(this, arguments);
+      }
+      return getLastEventTip;
+    }()
+  }, {
+    key: "recordEventTip",
+    value: function () {
+      var _recordEventTip = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(eventType, videoId) {
+        var data, log, cutoff, _i, _Object$keys, key;
+        return _regenerator().w(function (_context18) {
+          while (1) switch (_context18.n) {
+            case 0:
+              _context18.n = 1;
+              return chrome.storage.local.get('eventTipLog');
+            case 1:
+              data = _context18.v;
+              log = data.eventTipLog || {};
+              log["".concat(eventType, "_").concat(videoId)] = Date.now();
+
+              // Clean old entries (>24h)
+              cutoff = Date.now() - 86400000;
+              for (_i = 0, _Object$keys = Object.keys(log); _i < _Object$keys.length; _i++) {
+                key = _Object$keys[_i];
+                if (log[key] < cutoff) delete log[key];
+              }
+              _context18.n = 2;
+              return chrome.storage.local.set({
+                eventTipLog: log
+              });
+            case 2:
+              return _context18.a(2);
+          }
+        }, _callee18);
+      }));
+      function recordEventTip(_x14, _x15) {
+        return _recordEventTip.apply(this, arguments);
+      }
+      return recordEventTip;
+    }() // ─── RESET ALL DATA ───────────────────────────────
+  }, {
+    key: "resetAllData",
+    value: function () {
+      var _resetAllData = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+        return _regenerator().w(function (_context19) {
+          while (1) switch (_context19.n) {
+            case 0:
+              _context19.n = 1;
+              return chrome.storage.local.remove(['tipHistory', 'watchSessions', 'dailySpending', 'creatorCache', 'encryptedSeed', 'seedEncrypted', 'activeNetworks', 'tippingPool', 'eventTipLog']);
+            case 1:
+              return _context19.a(2, {
+                success: true
+              });
+          }
+        }, _callee19);
       }));
       function resetAllData() {
         return _resetAllData.apply(this, arguments);
@@ -51868,7 +52065,7 @@ var AI_CONFIG = {
   apiUrl: 'https://api.openai.com/v1/chat/completions',
   model: 'gpt-4o-mini',
   // System prompt that defines agent personality and behavior
-  systemPrompt: "You are RumbleTipAI, an autonomous tipping agent for Rumble.com video creators.\nYour job is to analyze viewing sessions and make intelligent tipping decisions.\n\nYou receive context about:\n- Creator name and content\n- Watch duration and engagement\n- User's tipping rules and budget\n- Historical tipping patterns\n\nYou must respond with a JSON object:\n{\n  \"shouldTip\": true/false,\n  \"confidence\": 0.0-1.0,\n  \"adjustedAmount\": number or null,\n  \"reasoning\": \"brief explanation\",\n  \"sentiment\": \"positive/neutral/negative\"\n}\n\nDecision guidelines:\n- Respect user's rules as the baseline\n- Consider engagement quality (longer watch = more engaged)\n- Be conservative with spending (protect user's budget)\n- Suggest amount adjustments if context warrants (e.g., bonus for loyal creators)\n- Never exceed maxTipAmount or daily limits\n- If watch time barely meets minimum, suggest lower confidence"
+  systemPrompt: "You are RumbleTipAI, an autonomous tipping agent for Rumble.com video creators.\nYour job is to analyze viewing sessions and make intelligent tipping decisions.\n\nYou receive context about:\n- Creator name and content\n- Watch duration and engagement\n- User's tipping rules and budget\n- Historical tipping patterns\n\nYou must respond with a JSON object:\n{\n  \"shouldTip\": true/false,\n  \"confidence\": 0.0-1.0,\n  \"adjustedAmount\": number or null,\n  \"reasoning\": \"brief explanation\",\n  \"sentiment\": \"positive/neutral/negative\"\n}\n\nDecision guidelines:\n- Respect user's rules as the baseline\n- Consider engagement quality (longer watch = more engaged)\n- Be conservative with spending (protect user's budget)\n- Suggest amount adjustments if context warrants (e.g., bonus for loyal creators)\n- Never exceed maxTipAmount or daily limits\n- If watch time barely meets minimum, suggest lower confidence\n\nBudget conservation rules:\n- When budget remaining < 20%: raise confidence threshold to 0.6 and prefer smaller tips\n- When budget remaining < 10%: only tip for exceptional engagement (>10 min watch time)\n- When a creator has been tipped recently (last 24h): reduce amount by 25% to spread across more creators\n- Prioritize creators the user has watched longest overall"
 };
 var AgentEngine = /*#__PURE__*/function () {
   function AgentEngine() {
@@ -51931,7 +52128,7 @@ var AgentEngine = /*#__PURE__*/function () {
     key: "shouldTip",
     value: function () {
       var _shouldTip = agent_asyncToGenerator(/*#__PURE__*/agent_regenerator().m(function _callee2(_ref) {
-        var creatorAddress, creatorName, watchMinutes, videoId, startTime, session, rule, tipAmount, settings, todaySpent, aiReasoning, confidence, adjusted, decision, _t, _t2, _t3, _t4, _t5, _t6, _t7, _t8, _t9, _t0;
+        var creatorAddress, creatorName, watchMinutes, videoId, startTime, session, rule, tipAmount, settings, todaySpent, budgetRemaining, budgetPct, aiReasoning, confidence, adjusted, decision, _t, _t2, _t3, _t4, _t5, _t6, _t7, _t8, _t9, _t0;
         return agent_regenerator().w(function (_context2) {
           while (1) switch (_context2.p = _context2.n) {
             case 0:
@@ -52017,14 +52214,43 @@ var AgentEngine = /*#__PURE__*/function () {
                 wouldNeed: todaySpent + tipAmount
               }));
             case 10:
+              // ── Step 5b: Budget conservation (rule-based, always active) ──
+              budgetRemaining = settings.maxDailySpend - todaySpent;
+              budgetPct = budgetRemaining / settings.maxDailySpend;
+              if (!(budgetPct < 0.1)) {
+                _context2.n = 12;
+                break;
+              }
+              if (!(watchMinutes < 10)) {
+                _context2.n = 11;
+                break;
+              }
+              return _context2.a(2, this.logDecision({
+                shouldTip: false,
+                reason: 'budget_conservation_critical',
+                budgetPct: (budgetPct * 100).toFixed(0) + '%',
+                note: 'Budget < 10%, only tipping for >10min engagement'
+              }));
+            case 11:
+              tipAmount = Math.min(tipAmount, rule.maxTipAmount * 0.5); // Cap at 50%
+              _context2.n = 13;
+              break;
+            case 12:
+              if (budgetPct < 0.2) {
+                // <20% budget: reduce tip amounts
+                tipAmount = Math.min(tipAmount, rule.maxTipAmount * 0.75);
+              }
+            case 13:
+              tipAmount = Math.round(tipAmount * 100) / 100;
+
               // ── Step 6: AI Reasoning (if enabled) ──
               aiReasoning = null;
               confidence = 1.0;
               if (!this.aiEnabled) {
-                _context2.n = 16;
+                _context2.n = 19;
                 break;
               }
-              _context2.p = 11;
+              _context2.p = 14;
               _t = this;
               _t2 = creatorName;
               _t3 = creatorAddress;
@@ -52033,11 +52259,11 @@ var AgentEngine = /*#__PURE__*/function () {
               _t6 = rule;
               _t7 = todaySpent;
               _t8 = settings.maxDailySpend;
-              _context2.n = 12;
+              _context2.n = 15;
               return storage.getTipHistory(10);
-            case 12:
+            case 15:
               _t9 = _context2.v;
-              _context2.n = 13;
+              _context2.n = 16;
               return _t.getAIDecision.call(_t, {
                 creatorName: _t2,
                 creatorAddress: _t3,
@@ -52048,7 +52274,7 @@ var AgentEngine = /*#__PURE__*/function () {
                 dailyLimit: _t8,
                 tipHistory: _t9
               });
-            case 13:
+            case 16:
               aiReasoning = _context2.v;
               confidence = aiReasoning.confidence || 1.0;
 
@@ -52062,7 +52288,7 @@ var AgentEngine = /*#__PURE__*/function () {
 
               // AI can veto the tip (low confidence)
               if (!(!aiReasoning.shouldTip && confidence < 0.3)) {
-                _context2.n = 14;
+                _context2.n = 17;
                 break;
               }
               return _context2.a(2, this.logDecision({
@@ -52071,13 +52297,13 @@ var AgentEngine = /*#__PURE__*/function () {
                 aiReasoning: aiReasoning,
                 confidence: confidence
               }));
-            case 14:
+            case 17:
               console.log("[Agent AI] Reasoning: ".concat(aiReasoning.reasoning));
               console.log("[Agent AI] Confidence: ".concat(confidence));
-              _context2.n = 16;
+              _context2.n = 19;
               break;
-            case 15:
-              _context2.p = 15;
+            case 18:
+              _context2.p = 18;
               _t0 = _context2.v;
               // AI failure is non-blocking — fallback to rule-based
               console.warn('[Agent AI] AI reasoning failed, using rule-based:', _t0.message);
@@ -52085,7 +52311,7 @@ var AgentEngine = /*#__PURE__*/function () {
                 error: _t0.message,
                 fallback: 'rule_based'
               };
-            case 16:
+            case 19:
               // ── Step 7: Final decision ──
               decision = {
                 shouldTip: true,
@@ -52100,7 +52326,7 @@ var AgentEngine = /*#__PURE__*/function () {
               };
               return _context2.a(2, this.logDecision(decision));
           }
-        }, _callee2, this, [[11, 15]]);
+        }, _callee2, this, [[14, 18]]);
       }));
       function shouldTip(_x) {
         return _shouldTip.apply(this, arguments);
@@ -52113,7 +52339,7 @@ var AgentEngine = /*#__PURE__*/function () {
     key: "getAIDecision",
     value: function () {
       var _getAIDecision = agent_asyncToGenerator(/*#__PURE__*/agent_regenerator().m(function _callee3(context) {
-        var userMessage, _data$choices, response, data, content, jsonMatch, _t1;
+        var budgetRemaining, budgetPct, recentToCreator, userMessage, _data$choices, response, data, content, jsonMatch, _t1;
         return agent_regenerator().w(function (_context3) {
           while (1) switch (_context3.p = _context3.n) {
             case 0:
@@ -52127,7 +52353,12 @@ var AgentEngine = /*#__PURE__*/function () {
                 reasoning: 'No API key — rule-based mode'
               });
             case 1:
-              userMessage = "Analyze this tipping decision:\nCreator: ".concat(context.creatorName, "\nWatch Time: ").concat(context.watchMinutes.toFixed(1), " minutes\nBase Tip Amount: $").concat(context.baseAmount, " ").concat(context.rule.token, "\nRule: $").concat(context.rule.ratePerMinute, "/min, min ").concat(context.rule.minWatchMinutes, " min, max $").concat(context.rule.maxTipAmount, "\nToday's Spending: $").concat(context.todaySpent, " / $").concat(context.dailyLimit, " daily limit\nRecent Tips: ").concat(context.tipHistory.length, " tips in history\n\nShould I send this tip? Respond with JSON only.");
+              budgetRemaining = context.dailyLimit - context.todaySpent;
+              budgetPct = (budgetRemaining / context.dailyLimit * 100).toFixed(0);
+              recentToCreator = context.tipHistory.filter(function (t) {
+                return t.creatorName === context.creatorName;
+              }).length;
+              userMessage = "Analyze this tipping decision:\n\nCreator: ".concat(context.creatorName, "\nWatch Time: ").concat(context.watchMinutes.toFixed(1), " minutes\nBase Tip Amount: $").concat(context.baseAmount, " ").concat(context.rule.token, "\nRule: $").concat(context.rule.ratePerMinute, "/min, min ").concat(context.rule.minWatchMinutes, " min, max $").concat(context.rule.maxTipAmount, "\nToday's Spending: $").concat(context.todaySpent, " / $").concat(context.dailyLimit, " daily limit\nBudget Remaining: ").concat(budgetPct, "% ($").concat(budgetRemaining.toFixed(2), ")\nRecent Tips to This Creator: ").concat(recentToCreator, " in last ").concat(context.tipHistory.length, " tips\nNetwork: ").concat(context.rule.network, " (").concat(context.rule.network === 'polygon' ? '~$0.001 gas' : context.rule.network === 'arbitrum' ? '~$0.01 gas' : '$1-5 gas', ")\n\nShould I send this tip? Respond with JSON only.");
               _context3.p = 2;
               _context3.n = 3;
               return fetch(AI_CONFIG.apiUrl, {
@@ -80460,6 +80691,13 @@ class WalletManagerBtc extends WalletManager {
 
 ;// ./src/wallet.js
 function wallet_typeof(o) { "@babel/helpers - typeof"; return wallet_typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, wallet_typeof(o); }
+function wallet_toConsumableArray(r) { return wallet_arrayWithoutHoles(r) || wallet_iterableToArray(r) || wallet_unsupportedIterableToArray(r) || wallet_nonIterableSpread(); }
+function wallet_nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function wallet_iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function wallet_arrayWithoutHoles(r) { if (Array.isArray(r)) return wallet_arrayLikeToArray(r); }
+function wallet_ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function wallet_objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? wallet_ownKeys(Object(t), !0).forEach(function (r) { wallet_defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : wallet_ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function wallet_defineProperty(e, r, t) { return (r = wallet_toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || wallet_unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -80469,13 +80707,13 @@ function wallet_regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; 
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = wallet_unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function wallet_unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return wallet_arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? wallet_arrayLikeToArray(r, a) : void 0; } }
 function wallet_arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
-function wallet_asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
-function wallet_asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { wallet_asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { wallet_asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function wallet_classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
 function wallet_defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, wallet_toPropertyKey(o.key), o); } }
 function wallet_createClass(e, r, t) { return r && wallet_defineProperties(e.prototype, r), t && wallet_defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function wallet_toPropertyKey(t) { var i = wallet_toPrimitive(t, "string"); return "symbol" == wallet_typeof(i) ? i : i + ""; }
 function wallet_toPrimitive(t, r) { if ("object" != wallet_typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != wallet_typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function wallet_asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function wallet_asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { wallet_asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { wallet_asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 // ═══════════════════════════════════════════════════════════
 // wallet.js — Tether WDK Integration (Real SDK)
 // ═══════════════════════════════════════════════════════════
@@ -80513,7 +80751,109 @@ var TOKEN_CONTRACTS = {
   }
 };
 
-// ─── RPC PROVIDERS ───────────────────────────────────
+// ─── ENCRYPTION HELPERS ─────────────────────────────────
+// Uses Web Crypto API (crypto.subtle) available in Chrome extension
+// service workers. Derives a 256-bit key from the user's password
+// using PBKDF2, then encrypts/decrypts with AES-GCM.
+var ENCRYPTION = {
+  SALT_LENGTH: 16,
+  IV_LENGTH: 12,
+  ITERATIONS: 100000
+};
+function deriveKey(_x, _x2) {
+  return _deriveKey.apply(this, arguments);
+}
+function _deriveKey() {
+  _deriveKey = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee7(password, salt) {
+    var enc, keyMaterial;
+    return wallet_regenerator().w(function (_context7) {
+      while (1) switch (_context7.n) {
+        case 0:
+          enc = new TextEncoder();
+          _context7.n = 1;
+          return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+        case 1:
+          keyMaterial = _context7.v;
+          return _context7.a(2, crypto.subtle.deriveKey({
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: ENCRYPTION.ITERATIONS,
+            hash: 'SHA-256'
+          }, keyMaterial, {
+            name: 'AES-GCM',
+            length: 256
+          }, false, ['encrypt', 'decrypt']));
+      }
+    }, _callee7);
+  }));
+  return _deriveKey.apply(this, arguments);
+}
+function encryptSeed(_x3, _x4) {
+  return _encryptSeed.apply(this, arguments);
+}
+function _encryptSeed() {
+  _encryptSeed = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee8(seedPhrase, password) {
+    var enc, salt, iv, key, ciphertext, packed;
+    return wallet_regenerator().w(function (_context8) {
+      while (1) switch (_context8.n) {
+        case 0:
+          enc = new TextEncoder();
+          salt = crypto.getRandomValues(new Uint8Array(ENCRYPTION.SALT_LENGTH));
+          iv = crypto.getRandomValues(new Uint8Array(ENCRYPTION.IV_LENGTH));
+          _context8.n = 1;
+          return deriveKey(password, salt);
+        case 1:
+          key = _context8.v;
+          _context8.n = 2;
+          return crypto.subtle.encrypt({
+            name: 'AES-GCM',
+            iv: iv
+          }, key, enc.encode(seedPhrase));
+        case 2:
+          ciphertext = _context8.v;
+          // Pack: salt + iv + ciphertext → base64
+          packed = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+          packed.set(salt, 0);
+          packed.set(iv, salt.length);
+          packed.set(new Uint8Array(ciphertext), salt.length + iv.length);
+          return _context8.a(2, btoa(String.fromCharCode.apply(String, wallet_toConsumableArray(packed))));
+      }
+    }, _callee8);
+  }));
+  return _encryptSeed.apply(this, arguments);
+}
+function decryptSeed(_x5, _x6) {
+  return _decryptSeed.apply(this, arguments);
+} // ─── RPC PROVIDERS ───────────────────────────────────
+function _decryptSeed() {
+  _decryptSeed = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee9(encryptedBase64, password) {
+    var packed, salt, iv, ciphertext, key, decrypted;
+    return wallet_regenerator().w(function (_context9) {
+      while (1) switch (_context9.n) {
+        case 0:
+          packed = Uint8Array.from(atob(encryptedBase64), function (c) {
+            return c.charCodeAt(0);
+          });
+          salt = packed.slice(0, ENCRYPTION.SALT_LENGTH);
+          iv = packed.slice(ENCRYPTION.SALT_LENGTH, ENCRYPTION.SALT_LENGTH + ENCRYPTION.IV_LENGTH);
+          ciphertext = packed.slice(ENCRYPTION.SALT_LENGTH + ENCRYPTION.IV_LENGTH);
+          _context9.n = 1;
+          return deriveKey(password, salt);
+        case 1:
+          key = _context9.v;
+          _context9.n = 2;
+          return crypto.subtle.decrypt({
+            name: 'AES-GCM',
+            iv: iv
+          }, key, ciphertext);
+        case 2:
+          decrypted = _context9.v;
+          return _context9.a(2, new TextDecoder().decode(decrypted));
+      }
+    }, _callee9);
+  }));
+  return _decryptSeed.apply(this, arguments);
+}
 var RPC_PROVIDERS = {
   ethereum: 'https://eth.drpc.org',
   polygon: 'https://polygon.drpc.org',
@@ -80542,6 +80882,10 @@ var WalletService = /*#__PURE__*/function () {
     this.isInitialized = false;
     this.seedPhrase = null;
     this.activeNetworks = [];
+    // ── Tip Mutex — prevents concurrent transactions from double-spending
+    this._tipLock = false;
+    this._lastTipTime = 0;
+    this.MIN_TIP_INTERVAL_MS = 30000; // 30s between tips
   }
 
   // ─── INITIALIZE WALLET ─────────────────────────────
@@ -80565,6 +80909,8 @@ var WalletService = /*#__PURE__*/function () {
           manager,
           account,
           electrumClient,
+          encPassword,
+          encrypted,
           _args = arguments,
           _t,
           _t2,
@@ -80674,22 +81020,28 @@ var WalletService = /*#__PURE__*/function () {
               this.activeNetworks = networks;
               this.isInitialized = true;
 
-              // Store seed phrase (encrypted in production!)
+              // Store seed phrase encrypted with AES-256-GCM via crypto.subtle
+              // Uses extension ID as password — unique per install, stays constant
+              encPassword = chrome.runtime.id || 'rumble-autotip-default';
               _context.n = 19;
+              return encryptSeed(seedPhrase, encPassword);
+            case 19:
+              encrypted = _context.v;
+              _context.n = 20;
               return chrome.storage.local.set({
-                encryptedSeed: seedPhrase,
-                // TODO: Encrypt properly in production
+                encryptedSeed: encrypted,
+                seedEncrypted: true,
                 activeNetworks: networks
               });
-            case 19:
+            case 20:
               console.log('[Wallet] Initialized successfully');
               console.log('[Wallet] Networks:', Object.keys(addresses).join(', '));
               return _context.a(2, {
                 success: true,
                 addresses: addresses
               });
-            case 20:
-              _context.p = 20;
+            case 21:
+              _context.p = 21;
               _t4 = _context.v;
               console.error('[Wallet] Initialization failed:', _t4);
               return _context.a(2, {
@@ -80697,9 +81049,9 @@ var WalletService = /*#__PURE__*/function () {
                 error: _t4.message
               });
           }
-        }, _callee, this, [[14, 17], [5, 8], [3, 11, 12, 13], [1, 20]]);
+        }, _callee, this, [[14, 17], [5, 8], [3, 11, 12, 13], [1, 21]]);
       }));
-      function initialize(_x) {
+      function initialize(_x7) {
         return _initialize.apply(this, arguments);
       }
       return initialize;
@@ -80708,27 +81060,54 @@ var WalletService = /*#__PURE__*/function () {
     key: "initializeFromStorage",
     value: function () {
       var _initializeFromStorage = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee2() {
-        var data, seedPhrase, networks;
+        var data, seedPhrase, encPassword, _encPassword, encrypted, networks;
         return wallet_regenerator().w(function (_context2) {
           while (1) switch (_context2.n) {
             case 0:
               _context2.n = 1;
-              return chrome.storage.local.get(['encryptedSeed', 'activeNetworks']);
+              return chrome.storage.local.get(['encryptedSeed', 'seedEncrypted', 'activeNetworks']);
             case 1:
               data = _context2.v;
               if (!data.encryptedSeed) {
+                _context2.n = 8;
+                break;
+              }
+              if (!data.seedEncrypted) {
                 _context2.n = 3;
                 break;
               }
-              seedPhrase = data.encryptedSeed; // TODO: Decrypt in production
-              networks = data.activeNetworks || ['ethereum', 'polygon', 'arbitrum', 'bitcoin'];
+              // Decrypt using crypto.subtle
+              encPassword = chrome.runtime.id || 'rumble-autotip-default';
               _context2.n = 2;
-              return this.initialize(seedPhrase, networks);
+              return decryptSeed(data.encryptedSeed, encPassword);
             case 2:
-              return _context2.a(2, _context2.v);
+              seedPhrase = _context2.v;
+              _context2.n = 6;
+              break;
             case 3:
-              throw new Error('No wallet found in storage');
+              // Legacy: migrate plain-text seed to encrypted
+              seedPhrase = data.encryptedSeed;
+              _encPassword = chrome.runtime.id || 'rumble-autotip-default';
+              _context2.n = 4;
+              return encryptSeed(seedPhrase, _encPassword);
             case 4:
+              encrypted = _context2.v;
+              _context2.n = 5;
+              return chrome.storage.local.set({
+                encryptedSeed: encrypted,
+                seedEncrypted: true
+              });
+            case 5:
+              console.log('[Wallet] Migrated seed phrase to encrypted storage');
+            case 6:
+              networks = data.activeNetworks || ['ethereum', 'polygon', 'arbitrum', 'bitcoin'];
+              _context2.n = 7;
+              return this.initialize(seedPhrase, networks);
+            case 7:
+              return _context2.a(2, _context2.v);
+            case 8:
+              throw new Error('No wallet found in storage');
+            case 9:
               return _context2.a(2);
           }
         }, _callee2, this);
@@ -80905,8 +81284,26 @@ var WalletService = /*#__PURE__*/function () {
       return natives[network] || 'ETH';
     }
 
+    // ─── SAFE DECIMAL CONVERSION ────────────────────────
+    // Convert human-readable amount to smallest token unit using
+    // STRING SPLITTING to avoid IEEE 754 floating-point precision loss.
+    // e.g., toSmallestUnit(1.23, 6) → 1230000n (not 1229999n)
+  }, {
+    key: "_toSmallestUnit",
+    value: function _toSmallestUnit(amount, decimals) {
+      var str = amount.toString();
+      var _str$split = str.split('.'),
+        _str$split2 = _slicedToArray(_str$split, 2),
+        whole = _str$split2[0],
+        _str$split2$ = _str$split2[1],
+        frac = _str$split2$ === void 0 ? '' : _str$split2$;
+      var paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals);
+      return BigInt(whole + paddedFrac);
+    }
+
     // ─── SEND TIP ──────────────────────────────────────
     // Send cryptocurrency tip to a creator.
+    // Protected by a mutex to prevent concurrent transactions.
     //
     // @param toAddress - Creator's wallet address
     // @param amount - Amount in token units (e.g., 0.50 = $0.50 USDT)
@@ -80920,6 +81317,8 @@ var WalletService = /*#__PURE__*/function () {
       var _sendTip = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee5(toAddress, amount) {
         var token,
           network,
+          now,
+          waitSec,
           account,
           _txResult$fee,
           txResult,
@@ -80944,77 +81343,100 @@ var WalletService = /*#__PURE__*/function () {
                 error: 'Wallet not initialized'
               });
             case 1:
+              if (!this._tipLock) {
+                _context5.n = 2;
+                break;
+              }
+              return _context5.a(2, {
+                success: false,
+                error: 'Another transaction is in progress'
+              });
+            case 2:
+              // ── Rate limit: minimum interval between tips ──
+              now = Date.now();
+              if (!(now - this._lastTipTime < this.MIN_TIP_INTERVAL_MS)) {
+                _context5.n = 3;
+                break;
+              }
+              waitSec = Math.ceil((this.MIN_TIP_INTERVAL_MS - (now - this._lastTipTime)) / 1000);
+              return _context5.a(2, {
+                success: false,
+                error: "Rate limited. Wait ".concat(waitSec, "s before next tip.")
+              });
+            case 3:
               account = this._getAccount(network);
               if (account) {
-                _context5.n = 2;
+                _context5.n = 4;
                 break;
               }
               return _context5.a(2, {
                 success: false,
                 error: "No wallet for network: ".concat(network)
               });
-            case 2:
-              _context5.p = 2;
+            case 4:
+              this._tipLock = true;
+              _context5.p = 5;
               console.log('[Wallet] ═══════════════════════════════════════');
               console.log("[Wallet] Sending ".concat(amount, " ").concat(token, " to ").concat(toAddress));
               console.log("[Wallet] Network: ".concat(network));
               console.log('[Wallet] ═══════════════════════════════════════');
               if (!(token === 'BTC')) {
-                _context5.n = 5;
+                _context5.n = 8;
                 break;
               }
               if (!(network !== 'bitcoin')) {
-                _context5.n = 3;
+                _context5.n = 6;
                 break;
               }
               return _context5.a(2, {
                 success: false,
                 error: 'BTC can only be sent on Bitcoin network'
               });
-            case 3:
-              satoshis = BigInt(Math.floor(amount * 1e8));
-              _context5.n = 4;
+            case 6:
+              satoshis = this._toSmallestUnit(amount, 8);
+              _context5.n = 7;
               return account.sendTransaction({
                 to: toAddress,
                 value: satoshis
               });
-            case 4:
+            case 7:
               txResult = _context5.v;
-              _context5.n = 9;
+              _context5.n = 12;
               break;
-            case 5:
+            case 8:
               // ── ERC-20 Token Transfer via WDK ──
               contractAddress = (_TOKEN_CONTRACTS$toke2 = TOKEN_CONTRACTS[token]) === null || _TOKEN_CONTRACTS$toke2 === void 0 ? void 0 : _TOKEN_CONTRACTS$toke2[network];
               if (contractAddress) {
-                _context5.n = 6;
+                _context5.n = 9;
                 break;
               }
               return _context5.a(2, {
                 success: false,
                 error: "".concat(token, " is not available on ").concat(network)
               });
-            case 6:
+            case 9:
               if (!(contractAddress === '0x0000000000000000000000000000000000000000')) {
-                _context5.n = 7;
+                _context5.n = 10;
                 break;
               }
               return _context5.a(2, {
                 success: false,
                 error: "".concat(token, " contract address not yet configured")
               });
-            case 7:
+            case 10:
               decimals = TOKEN_DECIMALS[token] || 6;
-              amountInSmallestUnit = BigInt(Math.floor(amount * Math.pow(10, decimals))); // Use WDK's native transfer() method for ERC-20
-              _context5.n = 8;
+              amountInSmallestUnit = this._toSmallestUnit(amount, decimals); // Use WDK's native transfer() method for ERC-20
+              _context5.n = 11;
               return account.transfer({
                 token: contractAddress,
                 recipient: toAddress,
                 amount: amountInSmallestUnit
               });
-            case 8:
+            case 11:
               txResult = _context5.v;
-            case 9:
-              console.log('[Wallet] ✅ Transaction successful!');
+            case 12:
+              this._lastTipTime = Date.now();
+              console.log('[Wallet] Transaction successful!');
               console.log("[Wallet] TX Hash: ".concat(txResult.hash));
               console.log("[Wallet] Fee: ".concat(txResult.fee));
               return _context5.a(2, {
@@ -81027,8 +81449,8 @@ var WalletService = /*#__PURE__*/function () {
                 to: toAddress,
                 status: 'confirmed'
               });
-            case 10:
-              _context5.p = 10;
+            case 13:
+              _context5.p = 13;
               _t8 = _context5.v;
               console.error('[Wallet] Transaction failed:', _t8);
               return _context5.a(2, {
@@ -81039,13 +81461,137 @@ var WalletService = /*#__PURE__*/function () {
                 network: network,
                 to: toAddress
               });
+            case 14:
+              _context5.p = 14;
+              this._tipLock = false;
+              return _context5.f(14);
+            case 15:
+              return _context5.a(2);
           }
-        }, _callee5, this, [[2, 10]]);
+        }, _callee5, this, [[5, 13, 14, 15]]);
       }));
-      function sendTip(_x2, _x3) {
+      function sendTip(_x8, _x9) {
         return _sendTip.apply(this, arguments);
       }
       return sendTip;
+    }() // ─── SEND SPLIT TIP ────────────────────────────────
+    // Atomic tip split between creator, collaborator(s), and/or community.
+    // Uses a simple multi-transfer pattern — sends each split in sequence.
+    //
+    // @param splits - Array of { address, bps } where bps = basis points (10000 = 100%)
+    // @param totalAmount - Total tip amount in token units
+    // @param token - Token symbol
+    // @param network - Network name
+    //
+    // Example: tipWithSplit([
+    //   { address: '0xCreator...', bps: 7000 },  // 70% to creator
+    //   { address: '0xEditor...', bps: 2000 },   // 20% to editor
+    //   { address: '0xCharity...', bps: 1000 },  // 10% to charity
+    // ], 1.00, 'USDT', 'polygon')
+  }, {
+    key: "sendSplitTip",
+    value: function () {
+      var _sendSplitTip = wallet_asyncToGenerator(/*#__PURE__*/wallet_regenerator().m(function _callee6(splits, totalAmount) {
+        var token,
+          network,
+          totalBps,
+          results,
+          allSuccess,
+          _iterator2,
+          _step2,
+          split,
+          splitAmount,
+          result,
+          _args6 = arguments,
+          _t9;
+        return wallet_regenerator().w(function (_context6) {
+          while (1) switch (_context6.p = _context6.n) {
+            case 0:
+              token = _args6.length > 2 && _args6[2] !== undefined ? _args6[2] : 'USDT';
+              network = _args6.length > 3 && _args6[3] !== undefined ? _args6[3] : 'polygon';
+              if (this.isInitialized) {
+                _context6.n = 1;
+                break;
+              }
+              return _context6.a(2, {
+                success: false,
+                error: 'Wallet not initialized'
+              });
+            case 1:
+              // Validate splits sum to 10000 bps
+              totalBps = splits.reduce(function (sum, s) {
+                return sum + s.bps;
+              }, 0);
+              if (!(totalBps !== 10000)) {
+                _context6.n = 2;
+                break;
+              }
+              return _context6.a(2, {
+                success: false,
+                error: "Split basis points must sum to 10000, got ".concat(totalBps)
+              });
+            case 2:
+              results = [];
+              allSuccess = true;
+              _iterator2 = _createForOfIteratorHelper(splits);
+              _context6.p = 3;
+              _iterator2.s();
+            case 4:
+              if ((_step2 = _iterator2.n()).done) {
+                _context6.n = 8;
+                break;
+              }
+              split = _step2.value;
+              splitAmount = Math.round(totalAmount * split.bps / 10000 * 100) / 100;
+              if (!(splitAmount <= 0)) {
+                _context6.n = 5;
+                break;
+              }
+              return _context6.a(3, 7);
+            case 5:
+              _context6.n = 6;
+              return this.sendTip(split.address, splitAmount, token, network);
+            case 6:
+              result = _context6.v;
+              results.push(wallet_objectSpread(wallet_objectSpread({}, result), {}, {
+                splitBps: split.bps,
+                splitLabel: split.label || 'unknown'
+              }));
+              if (result.success) {
+                _context6.n = 7;
+                break;
+              }
+              allSuccess = false;
+              return _context6.a(3, 8);
+            case 7:
+              _context6.n = 4;
+              break;
+            case 8:
+              _context6.n = 10;
+              break;
+            case 9:
+              _context6.p = 9;
+              _t9 = _context6.v;
+              _iterator2.e(_t9);
+            case 10:
+              _context6.p = 10;
+              _iterator2.f();
+              return _context6.f(10);
+            case 11:
+              return _context6.a(2, {
+                success: allSuccess,
+                splits: results,
+                totalAmount: totalAmount,
+                token: token,
+                network: network
+              });
+          }
+        }, _callee6, this, [[3, 9, 10, 11]]);
+      }));
+      function sendSplitTip(_x0, _x1) {
+        return _sendSplitTip.apply(this, arguments);
+      }
+      return sendSplitTip;
     }() // ─── DISPOSE ───────────────────────────────────────
     // Clear sensitive data from memory
   }, {
@@ -81112,6 +81658,7 @@ var WalletService = /*#__PURE__*/function () {
 }();
 ;// ./src/background.js
 function background_typeof(o) { "@babel/helpers - typeof"; return background_typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, background_typeof(o); }
+function background_createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = background_unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function background_slicedToArray(r, e) { return background_arrayWithHoles(r) || background_iterableToArrayLimit(r, e) || background_unsupportedIterableToArray(r, e) || background_nonIterableRest(); }
 function background_nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function background_unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return background_arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? background_arrayLikeToArray(r, a) : void 0; } }
@@ -81171,7 +81718,7 @@ function _handleMessage() {
         case 0:
           type = message.type, data = message.data;
           _t = type;
-          _context.n = _t === 'WATCH_UPDATE' ? 1 : _t === 'VIDEO_ENDED' ? 3 : _t === 'CREATOR_DETECTED' ? 5 : _t === 'CREATE_RULE' ? 7 : _t === 'GET_RULES' ? 9 : _t === 'DELETE_RULE' ? 11 : _t === 'UPDATE_RULE' ? 13 : _t === 'GENERATE_SEED' ? 15 : _t === 'VALIDATE_SEED' ? 16 : _t === 'INIT_WALLET' ? 17 : _t === 'GET_WALLET_INFO' ? 19 : _t === 'GET_BALANCE' ? 21 : _t === 'GET_STATS' ? 23 : _t === 'GET_TIP_HISTORY' ? 25 : _t === 'GET_SETTINGS' ? 27 : _t === 'UPDATE_SETTINGS' ? 29 : _t === 'GET_AGENT_LOG' ? 32 : _t === 'RESET_DATA' ? 33 : _t === 'MANUAL_TIP' ? 35 : _t === 'CONTENT_LOG' ? 37 : 38;
+          _context.n = _t === 'WATCH_UPDATE' ? 1 : _t === 'VIDEO_ENDED' ? 3 : _t === 'CREATOR_DETECTED' ? 5 : _t === 'CREATE_RULE' ? 7 : _t === 'GET_RULES' ? 9 : _t === 'DELETE_RULE' ? 11 : _t === 'UPDATE_RULE' ? 13 : _t === 'GENERATE_SEED' ? 15 : _t === 'VALIDATE_SEED' ? 16 : _t === 'INIT_WALLET' ? 17 : _t === 'GET_WALLET_INFO' ? 19 : _t === 'GET_BALANCE' ? 21 : _t === 'GET_STATS' ? 23 : _t === 'GET_TIP_HISTORY' ? 25 : _t === 'GET_SETTINGS' ? 27 : _t === 'UPDATE_SETTINGS' ? 29 : _t === 'GET_AGENT_LOG' ? 32 : _t === 'RESET_DATA' ? 33 : _t === 'MANUAL_TIP' ? 35 : _t === 'SPLIT_TIP' ? 37 : _t === 'POOL_CONTRIBUTE' ? 39 : _t === 'POOL_DISTRIBUTE' ? 41 : _t === 'GET_POOL_INFO' ? 43 : _t === 'EVENT_TIP' ? 45 : _t === 'GET_EVENT_TRIGGERS' ? 47 : _t === 'SET_EVENT_TRIGGER' ? 49 : _t === 'CONTENT_LOG' ? 51 : 52;
           break;
         case 1:
           console.log('[Agent] Watch update:', data);
@@ -81293,15 +81840,50 @@ function _handleMessage() {
         case 36:
           return _context.a(2, _context.v);
         case 37:
+          _context.n = 38;
+          return wallet.sendSplitTip(data.splits, data.totalAmount, data.token || 'USDT', data.network || 'polygon');
+        case 38:
+          return _context.a(2, _context.v);
+        case 39:
+          _context.n = 40;
+          return handlePoolContribution(data);
+        case 40:
+          return _context.a(2, _context.v);
+        case 41:
+          _context.n = 42;
+          return handlePoolDistribution(data);
+        case 42:
+          return _context.a(2, _context.v);
+        case 43:
+          _context.n = 44;
+          return background_storage.getPoolInfo();
+        case 44:
+          return _context.a(2, _context.v);
+        case 45:
+          _context.n = 46;
+          return handleEventTip(data);
+        case 46:
+          return _context.a(2, _context.v);
+        case 47:
+          _context.n = 48;
+          return background_storage.getEventTriggers();
+        case 48:
+          return _context.a(2, _context.v);
+        case 49:
+          _context.n = 50;
+          return background_storage.setEventTrigger(data);
+        case 50:
+          return _context.a(2, _context.v);
+        case 51:
           console.log(data.message);
           return _context.a(2, {
             ok: true
           });
-        case 38:
+        case 52:
           return _context.a(2, {
             error: "Unknown message type: ".concat(type)
           });
-        case 39:
+        case 53:
           return _context.a(2);
       }
     }, _callee);
@@ -81439,8 +82021,9 @@ function _handleVideoEnded() {
 }
 function executeTip(_x5) {
   return _executeTip.apply(this, arguments);
-} // ─── STARTUP ──────────────────────────────────────────
-// Initialize wallet jika seed phrase sudah tersimpan
+} // ─── COMMUNITY TIPPING POOL ───────────────────────────
+// Fans can contribute to a shared pool. The agent distributes
+// the pool to top creators based on collective watch time.
 function _executeTip() {
   _executeTip = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee4(_ref) {
     var creatorAddress, creatorName, amount, token, network, videoId, watchMinutes, reason, settings, todaySpent, txResult, tipRecord, _yield$chrome$tabs$qu, _yield$chrome$tabs$qu2, tab, stats, _t2, _t3;
@@ -81546,39 +82129,275 @@ function _executeTip() {
   }));
   return _executeTip.apply(this, arguments);
 }
+function handlePoolContribution(_x6) {
+  return _handlePoolContribution.apply(this, arguments);
+}
+function _handlePoolContribution() {
+  _handlePoolContribution = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee5(data) {
+    var amount, _data$token, token, _data$network, network, pool;
+    return background_regenerator().w(function (_context5) {
+      while (1) switch (_context5.n) {
+        case 0:
+          amount = data.amount, _data$token = data.token, token = _data$token === void 0 ? 'USDT' : _data$token, _data$network = data.network, network = _data$network === void 0 ? 'polygon' : _data$network;
+          if (!(!amount || amount <= 0)) {
+            _context5.n = 1;
+            break;
+          }
+          return _context5.a(2, {
+            success: false,
+            error: 'Invalid contribution amount'
+          });
+        case 1:
+          _context5.n = 2;
+          return background_storage.getPoolInfo();
+        case 2:
+          pool = _context5.v;
+          pool.contributions.push({
+            amount: amount,
+            token: token,
+            network: network,
+            timestamp: Date.now()
+          });
+          pool.totalAmount = (pool.totalAmount || 0) + amount;
+          _context5.n = 3;
+          return background_storage.savePoolInfo(pool);
+        case 3:
+          console.log("[Pool] Contribution: +".concat(amount, " ").concat(token, ". Pool total: ").concat(pool.totalAmount));
+          return _context5.a(2, {
+            success: true,
+            poolTotal: pool.totalAmount
+          });
+      }
+    }, _callee5);
+  }));
+  return _handlePoolContribution.apply(this, arguments);
+}
+function handlePoolDistribution(_x7) {
+  return _handlePoolDistribution.apply(this, arguments);
+} // ─── EVENT-TRIGGERED TIPPING ──────────────────────────
+// Tips triggered by livestream events: viewer milestones, chat spikes, etc.
+// Content script detects events and sends them here.
+function _handlePoolDistribution() {
+  _handlePoolDistribution = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee6(data) {
+    var pool, history, creatorStats, _iterator, _step, tip, topCreators, totalWatch, splits, bpsSum, result, _t4;
+    return background_regenerator().w(function (_context6) {
+      while (1) switch (_context6.p = _context6.n) {
+        case 0:
+          _context6.n = 1;
+          return background_storage.getPoolInfo();
+        case 1:
+          pool = _context6.v;
+          if (!(!pool.totalAmount || pool.totalAmount <= 0)) {
+            _context6.n = 2;
+            break;
+          }
+          return _context6.a(2, {
+            success: false,
+            error: 'Pool is empty'
+          });
+        case 2:
+          _context6.n = 3;
+          return background_storage.getTipHistory(500);
+        case 3:
+          history = _context6.v;
+          creatorStats = {};
+          _iterator = background_createForOfIteratorHelper(history);
+          _context6.p = 4;
+          _iterator.s();
+        case 5:
+          if ((_step = _iterator.n()).done) {
+            _context6.n = 8;
+            break;
+          }
+          tip = _step.value;
+          if (!(!tip.creatorAddress || tip.creatorAddress === '*')) {
+            _context6.n = 6;
+            break;
+          }
+          return _context6.a(3, 7);
+        case 6:
+          if (!creatorStats[tip.creatorAddress]) {
+            creatorStats[tip.creatorAddress] = {
+              address: tip.creatorAddress,
+              name: tip.creatorName,
+              totalWatchMinutes: 0,
+              tipCount: 0
+            };
+          }
+          creatorStats[tip.creatorAddress].totalWatchMinutes += tip.watchMinutes || 0;
+          creatorStats[tip.creatorAddress].tipCount++;
+        case 7:
+          _context6.n = 5;
+          break;
+        case 8:
+          _context6.n = 10;
+          break;
+        case 9:
+          _context6.p = 9;
+          _t4 = _context6.v;
+          _iterator.e(_t4);
+        case 10:
+          _context6.p = 10;
+          _iterator.f();
+          return _context6.f(10);
+        case 11:
+          // Rank by watch time, take top 5
+          topCreators = Object.values(creatorStats).sort(function (a, b) {
+            return b.totalWatchMinutes - a.totalWatchMinutes;
+          }).slice(0, data.maxCreators || 5);
+          if (!(topCreators.length === 0)) {
+            _context6.n = 12;
+            break;
+          }
+          return _context6.a(2, {
+            success: false,
+            error: 'No creators found in history'
+          });
+        case 12:
+          // Build splits based on watch time proportion
+          totalWatch = topCreators.reduce(function (s, c) {
+            return s + c.totalWatchMinutes;
+          }, 0);
+          splits = topCreators.map(function (c) {
+            return {
+              address: c.address,
+              label: c.name,
+              bps: Math.round(c.totalWatchMinutes / totalWatch * 10000)
+            };
+          }); // Normalize bps to sum exactly 10000
+          bpsSum = splits.reduce(function (s, sp) {
+            return s + sp.bps;
+          }, 0);
+          if (bpsSum !== 10000 && splits.length > 0) {
+            splits[0].bps += 10000 - bpsSum;
+          }
+          _context6.n = 13;
+          return wallet.sendSplitTip(splits, pool.totalAmount, data.token || 'USDT', data.network || 'polygon');
+        case 13:
+          result = _context6.v;
+          if (!result.success) {
+            _context6.n = 14;
+            break;
+          }
+          _context6.n = 14;
+          return background_storage.savePoolInfo({
+            contributions: [],
+            totalAmount: 0,
+            lastDistribution: Date.now()
+          });
+        case 14:
+          return _context6.a(2, background_objectSpread(background_objectSpread({}, result), {}, {
+            creators: topCreators.map(function (c) {
+              return c.name;
+            })
+          }));
+      }
+    }, _callee6, null, [[4, 9, 10, 11]]);
+  }));
+  return _handlePoolDistribution.apply(this, arguments);
+}
+function handleEventTip(_x8) {
+  return _handleEventTip.apply(this, arguments);
+} // ─── STARTUP ──────────────────────────────────────────
+// Initialize wallet jika seed phrase sudah tersimpan
+function _handleEventTip() {
+  _handleEventTip = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee7(data) {
+    var eventType, creatorAddress, creatorName, videoId, triggers, trigger, lastEventTip, result;
+    return background_regenerator().w(function (_context7) {
+      while (1) switch (_context7.n) {
+        case 0:
+          eventType = data.eventType, creatorAddress = data.creatorAddress, creatorName = data.creatorName, videoId = data.videoId; // Get event triggers configuration
+          _context7.n = 1;
+          return background_storage.getEventTriggers();
+        case 1:
+          triggers = _context7.v;
+          trigger = triggers.find(function (t) {
+            return t.eventType === eventType && t.isActive;
+          });
+          if (trigger) {
+            _context7.n = 2;
+            break;
+          }
+          return _context7.a(2, {
+            success: false,
+            reason: 'no_trigger_configured',
+            eventType: eventType
+          });
+        case 2:
+          console.log("[Agent] Event triggered: ".concat(eventType, " for ").concat(creatorName));
+
+          // Check cooldown (prevent spam from rapid events)
+          _context7.n = 3;
+          return background_storage.getLastEventTip(eventType, videoId);
+        case 3:
+          lastEventTip = _context7.v;
+          if (!(lastEventTip && Date.now() - lastEventTip < (trigger.cooldownMs || 60000))) {
+            _context7.n = 4;
+            break;
+          }
+          return _context7.a(2, {
+            success: false,
+            reason: 'event_cooldown'
+          });
+        case 4:
+          _context7.n = 5;
+          return executeTip({
+            creatorAddress: creatorAddress,
+            creatorName: creatorName,
+            amount: trigger.tipAmount,
+            token: trigger.token || 'USDT',
+            network: trigger.network || 'polygon',
+            videoId: videoId,
+            reason: "event_".concat(eventType)
+          });
+        case 5:
+          result = _context7.v;
+          if (!result.success) {
+            _context7.n = 6;
+            break;
+          }
+          _context7.n = 6;
+          return background_storage.recordEventTip(eventType, videoId);
+        case 6:
+          return _context7.a(2, result);
+      }
+    }, _callee7);
+  }));
+  return _handleEventTip.apply(this, arguments);
+}
 function startup() {
   return _startup.apply(this, arguments);
 }
 function _startup() {
-  _startup = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee5() {
-    var settings, data, _t4;
-    return background_regenerator().w(function (_context5) {
-      while (1) switch (_context5.p = _context5.n) {
+  _startup = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee8() {
+    var settings, data, _t5;
+    return background_regenerator().w(function (_context8) {
+      while (1) switch (_context8.p = _context8.n) {
         case 0:
           console.log('[Agent] Rumble Auto-Tip Agent starting...');
-          _context5.n = 1;
+          _context8.n = 1;
           return background_storage.getSettings();
         case 1:
-          settings = _context5.v;
-          _context5.n = 2;
+          settings = _context8.v;
+          _context8.n = 2;
           return chrome.storage.local.get('encryptedSeed');
         case 2:
-          data = _context5.v;
+          data = _context8.v;
           if (!data.encryptedSeed) {
-            _context5.n = 6;
+            _context8.n = 6;
             break;
           }
-          _context5.p = 3;
-          _context5.n = 4;
+          _context8.p = 3;
+          _context8.n = 4;
           return wallet.initializeFromStorage();
         case 4:
           console.log('[Agent] Wallet restored from storage');
-          _context5.n = 6;
+          _context8.n = 6;
           break;
         case 5:
-          _context5.p = 5;
-          _t4 = _context5.v;
-          console.warn('[Agent] Could not restore wallet:', _t4.message);
+          _context8.p = 5;
+          _t5 = _context8.v;
+          console.warn('[Agent] Could not restore wallet:', _t5.message);
         case 6:
           // Set daily spending alarm — reset setiap tengah malam
           chrome.alarms.create('resetDailySpending', {
@@ -81586,9 +82405,9 @@ function _startup() {
             periodInMinutes: 24 * 60
           });
         case 7:
-          return _context5.a(2);
+          return _context8.a(2);
       }
-    }, _callee5, null, [[3, 5]]);
+    }, _callee8, null, [[3, 5]]);
   }));
   return _startup.apply(this, arguments);
 }

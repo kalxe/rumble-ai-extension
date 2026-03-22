@@ -48,7 +48,13 @@ Decision guidelines:
 - Be conservative with spending (protect user's budget)
 - Suggest amount adjustments if context warrants (e.g., bonus for loyal creators)
 - Never exceed maxTipAmount or daily limits
-- If watch time barely meets minimum, suggest lower confidence`,
+- If watch time barely meets minimum, suggest lower confidence
+
+Budget conservation rules:
+- When budget remaining < 20%: raise confidence threshold to 0.6 and prefer smaller tips
+- When budget remaining < 10%: only tip for exceptional engagement (>10 min watch time)
+- When a creator has been tipped recently (last 24h): reduce amount by 25% to spread across more creators
+- Prioritize creators the user has watched longest overall`,
 };
 
 export class AgentEngine {
@@ -148,6 +154,28 @@ export class AgentEngine {
       });
     }
 
+    // ── Step 5b: Budget conservation (rule-based, always active) ──
+    const budgetRemaining = settings.maxDailySpend - todaySpent;
+    const budgetPct = budgetRemaining / settings.maxDailySpend;
+
+    if (budgetPct < 0.1) {
+      // <10% budget: only tip for exceptional engagement
+      if (watchMinutes < 10) {
+        return this.logDecision({
+          shouldTip: false,
+          reason: 'budget_conservation_critical',
+          budgetPct: (budgetPct * 100).toFixed(0) + '%',
+          note: 'Budget < 10%, only tipping for >10min engagement',
+        });
+      }
+      tipAmount = Math.min(tipAmount, rule.maxTipAmount * 0.5); // Cap at 50%
+    } else if (budgetPct < 0.2) {
+      // <20% budget: reduce tip amounts
+      tipAmount = Math.min(tipAmount, rule.maxTipAmount * 0.75);
+    }
+
+    tipAmount = Math.round(tipAmount * 100) / 100;
+
     // ── Step 6: AI Reasoning (if enabled) ──
     let aiReasoning = null;
     let confidence = 1.0;
@@ -218,13 +246,22 @@ export class AgentEngine {
       return { shouldTip: true, confidence: 1.0, reasoning: 'No API key — rule-based mode' };
     }
 
+    const budgetRemaining = context.dailyLimit - context.todaySpent;
+    const budgetPct = ((budgetRemaining / context.dailyLimit) * 100).toFixed(0);
+    const recentToCreator = context.tipHistory.filter(
+      t => t.creatorName === context.creatorName
+    ).length;
+
     const userMessage = `Analyze this tipping decision:
+
 Creator: ${context.creatorName}
 Watch Time: ${context.watchMinutes.toFixed(1)} minutes
 Base Tip Amount: $${context.baseAmount} ${context.rule.token}
 Rule: $${context.rule.ratePerMinute}/min, min ${context.rule.minWatchMinutes} min, max $${context.rule.maxTipAmount}
 Today's Spending: $${context.todaySpent} / $${context.dailyLimit} daily limit
-Recent Tips: ${context.tipHistory.length} tips in history
+Budget Remaining: ${budgetPct}% ($${budgetRemaining.toFixed(2)})
+Recent Tips to This Creator: ${recentToCreator} in last ${context.tipHistory.length} tips
+Network: ${context.rule.network} (${context.rule.network === 'polygon' ? '~$0.001 gas' : context.rule.network === 'arbitrum' ? '~$0.01 gas' : '$1-5 gas'})
 
 Should I send this tip? Respond with JSON only.`;
 

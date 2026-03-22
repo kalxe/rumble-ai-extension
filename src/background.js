@@ -147,6 +147,46 @@ async function handleMessage(message, sender) {
       });
     }
 
+    // ─── SPLIT TIP ─────────────────────────────
+    // Send a tip split between multiple recipients (creator, collaborators, causes)
+    case 'SPLIT_TIP': {
+      return await wallet.sendSplitTip(
+        data.splits,
+        data.totalAmount,
+        data.token || 'USDT',
+        data.network || 'polygon'
+      );
+    }
+
+    // ─── COMMUNITY TIPPING POOL ──────────────────
+    // Manage a community pool where multiple fans contribute to a shared pot
+    // that gets distributed to creators based on collective engagement.
+    case 'POOL_CONTRIBUTE': {
+      return await handlePoolContribution(data);
+    }
+
+    case 'POOL_DISTRIBUTE': {
+      return await handlePoolDistribution(data);
+    }
+
+    case 'GET_POOL_INFO': {
+      return await storage.getPoolInfo();
+    }
+
+    // ─── EVENT-TRIGGERED TIP ─────────────────────
+    // Tip triggered by livestream events (milestones, reactions, moments)
+    case 'EVENT_TIP': {
+      return await handleEventTip(data);
+    }
+
+    case 'GET_EVENT_TRIGGERS': {
+      return await storage.getEventTriggers();
+    }
+
+    case 'SET_EVENT_TRIGGER': {
+      return await storage.setEventTrigger(data);
+    }
+
     // ─── CONTENT SCRIPT LOG RELAY ──────────────
     case 'CONTENT_LOG': {
       console.log(data.message);
@@ -312,6 +352,132 @@ async function executeTip({ creatorAddress, creatorName, amount, token, network,
     console.error('[Agent] Tip failed:', error);
     return { success: false, error: error.message };
   }
+}
+
+// ─── COMMUNITY TIPPING POOL ───────────────────────────
+// Fans can contribute to a shared pool. The agent distributes
+// the pool to top creators based on collective watch time.
+async function handlePoolContribution(data) {
+  const { amount, token = 'USDT', network = 'polygon' } = data;
+
+  if (!amount || amount <= 0) {
+    return { success: false, error: 'Invalid contribution amount' };
+  }
+
+  // Get or create pool
+  const pool = await storage.getPoolInfo();
+  pool.contributions.push({
+    amount,
+    token,
+    network,
+    timestamp: Date.now(),
+  });
+  pool.totalAmount = (pool.totalAmount || 0) + amount;
+  await storage.savePoolInfo(pool);
+
+  console.log(`[Pool] Contribution: +${amount} ${token}. Pool total: ${pool.totalAmount}`);
+  return { success: true, poolTotal: pool.totalAmount };
+}
+
+async function handlePoolDistribution(data) {
+  const pool = await storage.getPoolInfo();
+  if (!pool.totalAmount || pool.totalAmount <= 0) {
+    return { success: false, error: 'Pool is empty' };
+  }
+
+  // Get tip history to find top creators by engagement
+  const history = await storage.getTipHistory(500);
+  const creatorStats = {};
+
+  for (const tip of history) {
+    if (!tip.creatorAddress || tip.creatorAddress === '*') continue;
+    if (!creatorStats[tip.creatorAddress]) {
+      creatorStats[tip.creatorAddress] = {
+        address: tip.creatorAddress,
+        name: tip.creatorName,
+        totalWatchMinutes: 0,
+        tipCount: 0,
+      };
+    }
+    creatorStats[tip.creatorAddress].totalWatchMinutes += (tip.watchMinutes || 0);
+    creatorStats[tip.creatorAddress].tipCount++;
+  }
+
+  // Rank by watch time, take top 5
+  const topCreators = Object.values(creatorStats)
+    .sort((a, b) => b.totalWatchMinutes - a.totalWatchMinutes)
+    .slice(0, data.maxCreators || 5);
+
+  if (topCreators.length === 0) {
+    return { success: false, error: 'No creators found in history' };
+  }
+
+  // Build splits based on watch time proportion
+  const totalWatch = topCreators.reduce((s, c) => s + c.totalWatchMinutes, 0);
+  const splits = topCreators.map(c => ({
+    address: c.address,
+    label: c.name,
+    bps: Math.round((c.totalWatchMinutes / totalWatch) * 10000),
+  }));
+
+  // Normalize bps to sum exactly 10000
+  const bpsSum = splits.reduce((s, sp) => s + sp.bps, 0);
+  if (bpsSum !== 10000 && splits.length > 0) {
+    splits[0].bps += (10000 - bpsSum);
+  }
+
+  const result = await wallet.sendSplitTip(
+    splits,
+    pool.totalAmount,
+    data.token || 'USDT',
+    data.network || 'polygon'
+  );
+
+  if (result.success) {
+    // Reset pool after successful distribution
+    await storage.savePoolInfo({ contributions: [], totalAmount: 0, lastDistribution: Date.now() });
+  }
+
+  return { ...result, creators: topCreators.map(c => c.name) };
+}
+
+// ─── EVENT-TRIGGERED TIPPING ──────────────────────────
+// Tips triggered by livestream events: viewer milestones, chat spikes, etc.
+// Content script detects events and sends them here.
+async function handleEventTip(data) {
+  const { eventType, creatorAddress, creatorName, videoId } = data;
+
+  // Get event triggers configuration
+  const triggers = await storage.getEventTriggers();
+  const trigger = triggers.find(t => t.eventType === eventType && t.isActive);
+
+  if (!trigger) {
+    return { success: false, reason: 'no_trigger_configured', eventType };
+  }
+
+  console.log(`[Agent] Event triggered: ${eventType} for ${creatorName}`);
+
+  // Check cooldown (prevent spam from rapid events)
+  const lastEventTip = await storage.getLastEventTip(eventType, videoId);
+  if (lastEventTip && (Date.now() - lastEventTip) < (trigger.cooldownMs || 60000)) {
+    return { success: false, reason: 'event_cooldown' };
+  }
+
+  const result = await executeTip({
+    creatorAddress,
+    creatorName,
+    amount: trigger.tipAmount,
+    token: trigger.token || 'USDT',
+    network: trigger.network || 'polygon',
+    videoId,
+    reason: `event_${eventType}`,
+  });
+
+  if (result.success) {
+    await storage.recordEventTip(eventType, videoId);
+  }
+
+  return result;
 }
 
 // ─── STARTUP ──────────────────────────────────────────

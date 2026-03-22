@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDashboard();
   loadRules();
   loadHistory();
+  loadAgentTab();
   loadSettings();
   setupEventListeners();
 });
@@ -203,6 +204,87 @@ function getExplorerUrl(network, txHash) {
   return explorers[network?.toLowerCase()] || `https://polygonscan.com/tx/${txHash}`;
 }
 
+// ─── AGENT TAB ────────────────────────────────────
+async function loadAgentTab() {
+  // Agent Decision Log
+  await refreshAgentLog();
+
+  // Pool Info
+  const pool = await sendMessage('GET_POOL_INFO');
+  if (pool) {
+    document.getElementById('poolBalance').textContent = `$${(pool.totalAmount || 0).toFixed(2)}`;
+    document.getElementById('poolContributors').textContent = (pool.contributions || []).length;
+  }
+
+  // Event Triggers
+  await loadEventTriggers();
+}
+
+async function refreshAgentLog() {
+  const log = await sendMessage('GET_AGENT_LOG', { limit: 15 });
+  const logEl = document.getElementById('agentLog');
+
+  if (log && log.length > 0) {
+    let html = '';
+    log.reverse().forEach(entry => {
+      const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const isSuccess = entry.shouldTip;
+      const msgClass = isSuccess ? 'success' : (entry.reason === 'daily_limit_reached' ? 'error' : '');
+      const icon = isSuccess ? '✅' : '⏭';
+      const detail = isSuccess
+        ? `TIP ${entry.amount} ${entry.token} — ${entry.formula || ''}`
+        : `SKIP: ${entry.reason}`;
+
+      html += `
+        <div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-message ${msgClass}">${icon} ${detail}</span>
+        </div>
+      `;
+    });
+    logEl.innerHTML = html;
+  }
+}
+
+async function loadEventTriggers() {
+  const triggers = await sendMessage('GET_EVENT_TRIGGERS');
+  const listEl = document.getElementById('eventTriggersList');
+
+  if (triggers && triggers.length > 0) {
+    let html = '';
+    triggers.forEach(trigger => {
+      html += `
+        <div class="rule-card">
+          <div class="rule-header">
+            <span class="rule-creator">${trigger.description || trigger.eventType}</span>
+            <label class="checkbox-label" style="margin: 0;">
+              <input type="checkbox" class="event-trigger-toggle"
+                     data-event-type="${trigger.eventType}"
+                     ${trigger.isActive ? 'checked' : ''}>
+            </label>
+          </div>
+          <div class="rule-details">
+            <span class="rule-tag">$${trigger.tipAmount} ${trigger.token}</span>
+            <span class="rule-tag">${trigger.network}</span>
+            <span class="rule-tag">${trigger.cooldownMs >= 60000 ? Math.round(trigger.cooldownMs / 60000) + 'min cooldown' : 'No cooldown'}</span>
+          </div>
+        </div>
+      `;
+    });
+    listEl.innerHTML = html;
+
+    // Toggle handlers
+    listEl.querySelectorAll('.event-trigger-toggle').forEach(toggle => {
+      toggle.addEventListener('change', async (e) => {
+        await sendMessage('SET_EVENT_TRIGGER', {
+          eventType: e.target.dataset.eventType,
+          isActive: e.target.checked,
+        });
+      });
+    });
+  }
+}
+
 // ─── SETTINGS ──────────────────────────────────────
 async function loadSettings() {
   const settings = await sendMessage('GET_SETTINGS');
@@ -368,6 +450,62 @@ function setupEventListeners() {
       loadHistory();
       loadRules();
       alert('All data has been reset.');
+    }
+  });
+
+  // Refresh agent log
+  document.getElementById('refreshAgentLog')?.addEventListener('click', refreshAgentLog);
+
+  // Pool contribute
+  document.getElementById('poolContribute')?.addEventListener('click', async () => {
+    const amount = parseFloat(document.getElementById('poolAmount').value);
+    if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+    const result = await sendMessage('POOL_CONTRIBUTE', { amount });
+    if (result?.success) {
+      document.getElementById('poolBalance').textContent = `$${result.poolTotal.toFixed(2)}`;
+      alert(`Added $${amount} to pool!`);
+      loadAgentTab();
+    } else {
+      alert(result?.error || 'Failed to contribute');
+    }
+  });
+
+  // Pool distribute
+  document.getElementById('poolDistribute')?.addEventListener('click', async () => {
+    if (!confirm('Distribute the entire pool to your top watched creators?')) return;
+    const result = await sendMessage('POOL_DISTRIBUTE', {});
+    if (result?.success) {
+      alert(`Pool distributed to: ${result.creators.join(', ')}`);
+      loadAgentTab();
+    } else {
+      alert(result?.error || 'Distribution failed');
+    }
+  });
+
+  // Split tip
+  document.getElementById('sendSplitTip')?.addEventListener('click', async () => {
+    const creatorAddr = document.getElementById('splitCreatorAddr').value.trim();
+    const totalAmount = parseFloat(document.getElementById('splitAmount').value);
+    const creatorPct = parseInt(document.getElementById('splitCreatorPct').value);
+    const collabAddr = document.getElementById('splitCollabAddr').value.trim();
+
+    if (!creatorAddr || !creatorAddr.startsWith('0x')) { alert('Enter a valid creator address'); return; }
+    if (!totalAmount || totalAmount <= 0) { alert('Enter a valid amount'); return; }
+
+    const splits = [{ address: creatorAddr, bps: creatorPct * 100, label: 'Creator' }];
+    if (collabAddr && collabAddr.startsWith('0x')) {
+      splits.push({ address: collabAddr, bps: (100 - creatorPct) * 100, label: 'Collaborator' });
+    } else {
+      splits[0].bps = 10000; // 100% to creator if no collaborator
+    }
+
+    const result = await sendMessage('SPLIT_TIP', { splits, totalAmount });
+    if (result?.success) {
+      alert(`Split tip sent! ${splits.map(s => `${s.label}: ${(totalAmount * s.bps / 10000).toFixed(2)}`).join(', ')}`);
+      loadHistory();
+      loadDashboard();
+    } else {
+      alert(result?.error || 'Split tip failed');
     }
   });
 

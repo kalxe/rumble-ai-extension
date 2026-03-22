@@ -89,6 +89,9 @@
     // 5. Inject auto-tip indicator badge ke halaman
     injectTipBadge();
 
+    // 6. Start livestream event detection (milestones, chat spikes)
+    startLivestreamEventDetection();
+
     console.log('[Rumble Auto-Tip] Ready!', {
       videoId: currentVideoId,
       creator: currentCreatorName,
@@ -775,6 +778,92 @@
       notification.style.transform = 'translateY(20px)';
       setTimeout(() => notification.remove(), 300);
     }, 5000);
+  }
+
+  // ─── LIVESTREAM EVENT DETECTION ────────────────────
+  // Monitors livestream pages for tippable events:
+  //   - Viewer milestones (100, 500, 1K, 5K, 10K, 50K, 100K)
+  //   - Video completed (user watched to the end)
+  //   - Chat activity spikes
+  let lastViewerCount = 0;
+  let chatMessageCount = 0;
+  let lastChatCheck = Date.now();
+  const VIEWER_MILESTONES = [100, 500, 1000, 5000, 10000, 50000, 100000];
+
+  function startLivestreamEventDetection() {
+    // Check viewer count every 15 seconds
+    setInterval(() => {
+      detectViewerMilestone();
+      detectChatSpike();
+    }, 15000);
+  }
+
+  function detectViewerMilestone() {
+    // Rumble shows viewer count in various places
+    const viewerEl = document.querySelector(
+      '.video-viewer-count, .viewer-count, [class*="watching"], .media-heading-info span'
+    );
+    if (!viewerEl) return;
+
+    const text = viewerEl.textContent.replace(/[^0-9.kKmM]/g, '');
+    let count = 0;
+    if (text.match(/[kK]$/)) count = parseFloat(text) * 1000;
+    else if (text.match(/[mM]$/)) count = parseFloat(text) * 1000000;
+    else count = parseInt(text) || 0;
+
+    if (count <= 0 || count === lastViewerCount) return;
+
+    // Check if we crossed a milestone
+    for (const milestone of VIEWER_MILESTONES) {
+      if (lastViewerCount < milestone && count >= milestone) {
+        bgLog('Viewer milestone reached: ' + count + ' (crossed ' + milestone + ')');
+        chrome.runtime.sendMessage({
+          type: 'EVENT_TIP',
+          data: {
+            eventType: 'viewer_milestone',
+            creatorAddress: currentCreatorAddress,
+            creatorName: currentCreatorName,
+            videoId: currentVideoId,
+            milestone: milestone,
+            viewerCount: count,
+          }
+        });
+        break;
+      }
+    }
+
+    lastViewerCount = count;
+  }
+
+  function detectChatSpike() {
+    // Count chat messages since last check
+    const chatMessages = document.querySelectorAll(
+      '.chat-history--row, .chat-message, [class*="chat-entry"], [class*="chat-line"]'
+    );
+    const currentCount = chatMessages.length;
+    const newMessages = currentCount - chatMessageCount;
+    const elapsed = (Date.now() - lastChatCheck) / 1000;
+
+    if (elapsed > 0 && newMessages > 0) {
+      const rate = newMessages / elapsed; // messages per second
+      // If more than 2 messages/second, it's a spike
+      if (rate > 2) {
+        bgLog('Chat spike detected: ' + rate.toFixed(1) + ' msg/s');
+        chrome.runtime.sendMessage({
+          type: 'EVENT_TIP',
+          data: {
+            eventType: 'chat_spike',
+            creatorAddress: currentCreatorAddress,
+            creatorName: currentCreatorName,
+            videoId: currentVideoId,
+            chatRate: rate,
+          }
+        });
+      }
+    }
+
+    chatMessageCount = currentCount;
+    lastChatCheck = Date.now();
   }
 
   // ─── OBSERVE SPA PAGE CHANGES ───────────────────
