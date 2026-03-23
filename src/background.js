@@ -126,6 +126,12 @@ async function handleMessage(message, sender) {
       return agent.getDecisionLog(data?.limit || 20);
     }
 
+    // ─── AI CHAT ──────────────────────────────────
+    // Conversational AI that can create rules, show stats, etc.
+    case 'AGENT_CHAT': {
+      return await handleAgentChat(data);
+    }
+
     // ─── RESET ALL DATA ─────────────────────────────
     case 'RESET_DATA': {
       const resetResult = await storage.resetAllData();
@@ -478,6 +484,73 @@ async function handleEventTip(data) {
   }
 
   return result;
+}
+
+// ─── AGENT CHAT HANDLER ──────────────────────────────────
+// Processes chat messages from the AI assistant and executes actions.
+async function handleAgentChat(data) {
+  const { message: userMessage, history = [] } = data;
+
+  // Gather context for the AI
+  const stats = await storage.getStats();
+  const settings = await storage.getSettings();
+  const rules = await agent.getRules();
+
+  const response = await agent.chat(userMessage, {
+    stats,
+    settings,
+    rules,
+    history,
+  });
+
+  // Execute action if the AI returned one
+  let actionResult = null;
+
+  if (response.action) {
+    const { type, params } = response.action;
+
+    switch (type) {
+      case 'create_rule': {
+        const result = await agent.createRule(params);
+        actionResult = result.success
+          ? `✅ Rule created: ${params.ratePerMinute} ${params.token || 'USDT'}/min on ${params.network || 'polygon'}`
+          : `❌ ${result.error}`;
+        break;
+      }
+
+      case 'delete_all_rules': {
+        const allRules = await agent.getRules();
+        let deleted = 0;
+        for (const rule of allRules) {
+          if (rule.isActive) {
+            await agent.deleteRule(rule.id);
+            deleted++;
+          }
+        }
+        actionResult = `✅ Deleted ${deleted} rule(s)`;
+        break;
+      }
+
+      case 'delete_rule': {
+        const result = await agent.deleteRule(params.ruleId);
+        actionResult = result.success ? '✅ Rule deleted' : `❌ ${result.error}`;
+        break;
+      }
+
+      case 'update_settings': {
+        await storage.updateSettings(params);
+        await agent.initAI();
+        actionResult = `✅ Settings updated: ${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ')}`;
+        break;
+      }
+    }
+  }
+
+  return {
+    message: response.message,
+    action: response.action,
+    actionResult,
+  };
 }
 
 // ─── STARTUP ──────────────────────────────────────────

@@ -52028,6 +52028,12 @@ var StorageHelper = /*#__PURE__*/function () {
 }();
 ;// ./src/agent.js
 function agent_typeof(o) { "@babel/helpers - typeof"; return agent_typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, agent_typeof(o); }
+function agent_toConsumableArray(r) { return agent_arrayWithoutHoles(r) || agent_iterableToArray(r) || agent_unsupportedIterableToArray(r) || agent_nonIterableSpread(); }
+function agent_nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function agent_unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return agent_arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? agent_arrayLikeToArray(r, a) : void 0; } }
+function agent_iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function agent_arrayWithoutHoles(r) { if (Array.isArray(r)) return agent_arrayLikeToArray(r); }
+function agent_arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function agent_ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function agent_objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? agent_ownKeys(Object(t), !0).forEach(function (r) { agent_defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : agent_ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function agent_defineProperty(e, r, t) { return (r = agent_toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -52693,7 +52699,206 @@ var AgentEngine = /*#__PURE__*/function () {
         return _updateRule.apply(this, arguments);
       }
       return updateRule;
-    }()
+    }() // ─── AI CHAT ──────────────────────────────────────
+    // Conversational AI that can create/modify rules, show stats,
+    // and answer questions via natural language.
+  }, {
+    key: "chat",
+    value: function () {
+      var _chat = agent_asyncToGenerator(/*#__PURE__*/agent_regenerator().m(function _callee9(userMessage) {
+        var context,
+          rules,
+          activeRules,
+          stats,
+          settings,
+          chatSystemPrompt,
+          _data$choices2,
+          response,
+          data,
+          content,
+          jsonMatch,
+          parsed,
+          _args9 = arguments,
+          _t10;
+        return agent_regenerator().w(function (_context9) {
+          while (1) switch (_context9.p = _context9.n) {
+            case 0:
+              context = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {};
+              if (this.apiKey) {
+                _context9.n = 1;
+                break;
+              }
+              return _context9.a(2, this.chatFallback(userMessage, context));
+            case 1:
+              _context9.n = 2;
+              return this.getRules();
+            case 2:
+              rules = _context9.v;
+              activeRules = rules.filter(function (r) {
+                return r.isActive;
+              });
+              stats = context.stats || {};
+              settings = context.settings || {};
+              chatSystemPrompt = "You are RumbleTipAI Assistant, a helpful AI inside a Chrome extension that auto-tips Rumble.com video creators with cryptocurrency.\n\nYou can help users:\n1. Create tipping rules\n2. Delete/modify rules\n3. Check stats and spending\n4. Update settings (budget, preferences)\n5. Answer questions about the extension\n\nCurrent state:\n- Active rules: ".concat(activeRules.length > 0 ? activeRules.map(function (r) {
+                return "".concat(r.creatorName || r.creatorAddress, " @ ").concat(r.ratePerMinute, " ").concat(r.token, "/min on ").concat(r.network, ", min ").concat(r.minWatchMinutes, "m, max ").concat(r.maxTipAmount);
+              }).join('; ') : 'None', "\n- Total tips sent: ").concat(stats.totalTips || 0, "\n- Today spent: $").concat((stats.todaySpent || 0).toFixed(2), " / $").concat(settings.maxDailySpend || 50, " daily limit\n- Total amount: $").concat((stats.totalAmount || 0).toFixed(2), "\n- AI enabled: ").concat(this.aiEnabled ? 'Yes' : 'No', "\n- Default network: ").concat(settings.defaultNetwork || 'polygon', "\n\nIMPORTANT: Always respond with a JSON object:\n{\n  \"message\": \"Your friendly response to the user\",\n  \"action\": null or one of the action objects below\n}\n\nAvailable actions:\n1. Create rule:\n   { \"type\": \"create_rule\", \"params\": { \"creatorAddress\": \"*\", \"ratePerMinute\": 0.02, \"token\": \"USDT\", \"network\": \"polygon\", \"minWatchMinutes\": 3, \"maxTipAmount\": 5 } }\n\n2. Delete all rules:\n   { \"type\": \"delete_all_rules\" }\n\n3. Delete specific rule:\n   { \"type\": \"delete_rule\", \"params\": { \"ruleId\": \"rule_xxx\" } }\n\n4. Update settings:\n   { \"type\": \"update_settings\", \"params\": { \"maxDailySpend\": 20 } }\n\n5. No action (info only):\n   null\n\nRules for responding:\n- Be concise and friendly\n- Respond in the same language as the user (if they write in Indonesian, respond in Indonesian)\n- When creating rules, confirm the parameters clearly\n- If ambiguous, ask for clarification\n- Valid tokens: USDT, USAT, XAUT, BTC\n- Valid networks: polygon, arbitrum, ethereum, bitcoin\n- Default to USDT on polygon if not specified\n- Always respond with JSON only");
+              _context9.p = 3;
+              _context9.n = 4;
+              return fetch(AI_CONFIG.apiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': "Bearer ".concat(this.apiKey)
+                },
+                body: JSON.stringify({
+                  model: AI_CONFIG.model,
+                  messages: [{
+                    role: 'system',
+                    content: chatSystemPrompt
+                  }].concat(agent_toConsumableArray(context.history || []), [{
+                    role: 'user',
+                    content: userMessage
+                  }]),
+                  max_tokens: 400,
+                  temperature: 0.5
+                })
+              });
+            case 4:
+              response = _context9.v;
+              if (response.ok) {
+                _context9.n = 5;
+                break;
+              }
+              throw new Error("API error: ".concat(response.status));
+            case 5:
+              _context9.n = 6;
+              return response.json();
+            case 6:
+              data = _context9.v;
+              content = ((_data$choices2 = data.choices) === null || _data$choices2 === void 0 || (_data$choices2 = _data$choices2[0]) === null || _data$choices2 === void 0 || (_data$choices2 = _data$choices2.message) === null || _data$choices2 === void 0 ? void 0 : _data$choices2.content) || ''; // Parse JSON response
+              jsonMatch = content.match(/\{[\s\S]*\}/);
+              if (!jsonMatch) {
+                _context9.n = 7;
+                break;
+              }
+              parsed = JSON.parse(jsonMatch[0]);
+              return _context9.a(2, {
+                message: parsed.message || content,
+                action: parsed.action || null
+              });
+            case 7:
+              return _context9.a(2, {
+                message: content,
+                action: null
+              });
+            case 8:
+              _context9.p = 8;
+              _t10 = _context9.v;
+              console.warn('[Agent Chat] LLM call failed:', _t10.message);
+              return _context9.a(2, this.chatFallback(userMessage, context));
+          }
+        }, _callee9, this, [[3, 8]]);
+      }));
+      function chat(_x8) {
+        return _chat.apply(this, arguments);
+      }
+      return chat;
+    }() // ─── CHAT FALLBACK (no API key) ─────────────────
+    // Simple pattern matching for basic commands when AI is unavailable.
+  }, {
+    key: "chatFallback",
+    value: function chatFallback(userMessage) {
+      var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      var msg = userMessage.toLowerCase().trim();
+      var stats = context.stats || {};
+      var settings = context.settings || {};
+
+      // Create rule patterns
+      var tipMatch = msg.match(/tip\s+\$?([\d.]+)\s*(?:\/|\s*per\s*)(?:min|minute|menit)/i);
+      if (tipMatch) {
+        var rate = parseFloat(tipMatch[1]);
+        var maxMatch = msg.match(/max\s+\$?([\d.]+)/i);
+        var maxTip = maxMatch ? parseFloat(maxMatch[1]) : 5;
+        var network = msg.includes('arbitrum') ? 'arbitrum' : msg.includes('ethereum') ? 'ethereum' : msg.includes('bitcoin') ? 'bitcoin' : 'polygon';
+        var token = msg.includes('xaut') ? 'XAUT' : msg.includes('usat') ? 'USAT' : msg.includes('btc') ? 'BTC' : 'USDT';
+        return {
+          message: "Creating rule: $".concat(rate, " ").concat(token, "/min, max $").concat(maxTip, ", on ").concat(network, "."),
+          action: {
+            type: 'create_rule',
+            params: {
+              creatorAddress: '*',
+              ratePerMinute: rate,
+              token: token,
+              network: network,
+              minWatchMinutes: 3,
+              maxTipAmount: maxTip
+            }
+          }
+        };
+      }
+
+      // Show rules
+      if (msg.includes('rule') && (msg.includes('show') || msg.includes('list') || msg.includes('lihat') || msg.includes('tampil'))) {
+        var rules = context.rules || [];
+        var active = rules.filter(function (r) {
+          return r.isActive;
+        });
+        if (active.length === 0) {
+          return {
+            message: 'No active rules. Try: "tip $0.02/min on polygon"',
+            action: null
+          };
+        }
+        var list = active.map(function (r) {
+          return "\u2022 ".concat(r.creatorName || 'All', ": $").concat(r.ratePerMinute, " ").concat(r.token, "/min, max $").concat(r.maxTipAmount, " on ").concat(r.network);
+        }).join('\n');
+        return {
+          message: "Active rules:\n".concat(list),
+          action: null
+        };
+      }
+
+      // Delete rules
+      if (msg.includes('hapus') || msg.includes('delete') || msg.includes('remove') || msg.includes('clear')) {
+        if (msg.includes('semua') || msg.includes('all')) {
+          return {
+            message: 'Deleting all rules.',
+            action: {
+              type: 'delete_all_rules'
+            }
+          };
+        }
+      }
+
+      // Stats
+      if (msg.includes('stats') || msg.includes('statistik') || msg.includes('berapa') || msg.includes('total') || msg.includes('spending')) {
+        return {
+          message: "\uD83D\uDCCA Stats:\n\u2022 Total tips: ".concat(stats.totalTips || 0, "\n\u2022 Total sent: $").concat((stats.totalAmount || 0).toFixed(2), "\n\u2022 Today: $").concat((stats.todaySpent || 0).toFixed(2), " / $").concat(settings.maxDailySpend || 50, "\n\u2022 Creators: ").concat(stats.uniqueCreators || 0),
+          action: null
+        };
+      }
+
+      // Budget
+      var budgetMatch = msg.match(/budget\s+\$?([\d.]+)/i) || msg.match(/daily\s+\$?([\d.]+)/i);
+      if (budgetMatch) {
+        var amount = parseFloat(budgetMatch[1]);
+        return {
+          message: "Setting daily budget to $".concat(amount, "."),
+          action: {
+            type: 'update_settings',
+            params: {
+              maxDailySpend: amount
+            }
+          }
+        };
+      }
+
+      // Help / default
+      return {
+        message: "I can help you with:\n\u2022 \"Tip $0.05/min on polygon\" \u2014 create a rule\n\u2022 \"Show my rules\" \u2014 list active rules\n\u2022 \"Delete all rules\" \u2014 clear rules\n\u2022 \"Stats\" \u2014 check your tipping stats\n\u2022 \"Budget $30\" \u2014 set daily limit\n\n\uD83D\uDCA1 For AI-powered chat, add your OpenAI API key in Settings.",
+        action: null
+      };
+    }
   }]);
 }();
 // EXTERNAL MODULE: ./node_modules/bip39/src/index.js
@@ -81718,7 +81923,7 @@ function _handleMessage() {
         case 0:
           type = message.type, data = message.data;
           _t = type;
-          _context.n = _t === 'WATCH_UPDATE' ? 1 : _t === 'VIDEO_ENDED' ? 3 : _t === 'CREATOR_DETECTED' ? 5 : _t === 'CREATE_RULE' ? 7 : _t === 'GET_RULES' ? 9 : _t === 'DELETE_RULE' ? 11 : _t === 'UPDATE_RULE' ? 13 : _t === 'GENERATE_SEED' ? 15 : _t === 'VALIDATE_SEED' ? 16 : _t === 'INIT_WALLET' ? 17 : _t === 'GET_WALLET_INFO' ? 19 : _t === 'GET_BALANCE' ? 21 : _t === 'GET_STATS' ? 23 : _t === 'GET_TIP_HISTORY' ? 25 : _t === 'GET_SETTINGS' ? 27 : _t === 'UPDATE_SETTINGS' ? 29 : _t === 'GET_AGENT_LOG' ? 32 : _t === 'RESET_DATA' ? 33 : _t === 'MANUAL_TIP' ? 35 : _t === 'SPLIT_TIP' ? 37 : _t === 'POOL_CONTRIBUTE' ? 39 : _t === 'POOL_DISTRIBUTE' ? 41 : _t === 'GET_POOL_INFO' ? 43 : _t === 'EVENT_TIP' ? 45 : _t === 'GET_EVENT_TRIGGERS' ? 47 : _t === 'SET_EVENT_TRIGGER' ? 49 : _t === 'CONTENT_LOG' ? 51 : 52;
+          _context.n = _t === 'WATCH_UPDATE' ? 1 : _t === 'VIDEO_ENDED' ? 3 : _t === 'CREATOR_DETECTED' ? 5 : _t === 'CREATE_RULE' ? 7 : _t === 'GET_RULES' ? 9 : _t === 'DELETE_RULE' ? 11 : _t === 'UPDATE_RULE' ? 13 : _t === 'GENERATE_SEED' ? 15 : _t === 'VALIDATE_SEED' ? 16 : _t === 'INIT_WALLET' ? 17 : _t === 'GET_WALLET_INFO' ? 19 : _t === 'GET_BALANCE' ? 21 : _t === 'GET_STATS' ? 23 : _t === 'GET_TIP_HISTORY' ? 25 : _t === 'GET_SETTINGS' ? 27 : _t === 'UPDATE_SETTINGS' ? 29 : _t === 'GET_AGENT_LOG' ? 32 : _t === 'AGENT_CHAT' ? 33 : _t === 'RESET_DATA' ? 35 : _t === 'MANUAL_TIP' ? 37 : _t === 'SPLIT_TIP' ? 39 : _t === 'POOL_CONTRIBUTE' ? 41 : _t === 'POOL_DISTRIBUTE' ? 43 : _t === 'GET_POOL_INFO' ? 45 : _t === 'EVENT_TIP' ? 47 : _t === 'GET_EVENT_TRIGGERS' ? 49 : _t === 'SET_EVENT_TRIGGER' ? 51 : _t === 'CONTENT_LOG' ? 53 : 54;
           break;
         case 1:
           console.log('[Agent] Watch update:', data);
@@ -81818,8 +82023,13 @@ function _handleMessage() {
           return _context.a(2, agent.getDecisionLog((data === null || data === void 0 ? void 0 : data.limit) || 20));
         case 33:
           _context.n = 34;
-          return background_storage.resetAllData();
+          return handleAgentChat(data);
         case 34:
+          return _context.a(2, _context.v);
+        case 35:
+          _context.n = 36;
+          return background_storage.resetAllData();
+        case 36:
           resetResult = _context.v;
           // Also reset wallet state in memory
           wallet.dispose();
@@ -81827,8 +82037,8 @@ function _handleMessage() {
             text: ''
           });
           return _context.a(2, resetResult);
-        case 35:
-          _context.n = 36;
+        case 37:
+          _context.n = 38;
           return executeTip({
             creatorAddress: data.creatorAddress,
             creatorName: data.creatorName,
@@ -81837,53 +82047,53 @@ function _handleMessage() {
             network: data.network,
             reason: 'manual'
           });
-        case 36:
-          return _context.a(2, _context.v);
-        case 37:
-          _context.n = 38;
-          return wallet.sendSplitTip(data.splits, data.totalAmount, data.token || 'USDT', data.network || 'polygon');
         case 38:
           return _context.a(2, _context.v);
         case 39:
           _context.n = 40;
-          return handlePoolContribution(data);
+          return wallet.sendSplitTip(data.splits, data.totalAmount, data.token || 'USDT', data.network || 'polygon');
         case 40:
           return _context.a(2, _context.v);
         case 41:
           _context.n = 42;
-          return handlePoolDistribution(data);
+          return handlePoolContribution(data);
         case 42:
           return _context.a(2, _context.v);
         case 43:
           _context.n = 44;
-          return background_storage.getPoolInfo();
+          return handlePoolDistribution(data);
         case 44:
           return _context.a(2, _context.v);
         case 45:
           _context.n = 46;
-          return handleEventTip(data);
+          return background_storage.getPoolInfo();
         case 46:
           return _context.a(2, _context.v);
         case 47:
           _context.n = 48;
-          return background_storage.getEventTriggers();
+          return handleEventTip(data);
         case 48:
           return _context.a(2, _context.v);
         case 49:
           _context.n = 50;
-          return background_storage.setEventTrigger(data);
+          return background_storage.getEventTriggers();
         case 50:
           return _context.a(2, _context.v);
         case 51:
+          _context.n = 52;
+          return background_storage.setEventTrigger(data);
+        case 52:
+          return _context.a(2, _context.v);
+        case 53:
           console.log(data.message);
           return _context.a(2, {
             ok: true
           });
-        case 52:
+        case 54:
           return _context.a(2, {
             error: "Unknown message type: ".concat(type)
           });
-        case 53:
+        case 55:
           return _context.a(2);
       }
     }, _callee);
@@ -82298,8 +82508,8 @@ function _handlePoolDistribution() {
 }
 function handleEventTip(_x8) {
   return _handleEventTip.apply(this, arguments);
-} // ─── STARTUP ──────────────────────────────────────────
-// Initialize wallet jika seed phrase sudah tersimpan
+} // ─── AGENT CHAT HANDLER ──────────────────────────────────
+// Processes chat messages from the AI assistant and executes actions.
 function _handleEventTip() {
   _handleEventTip = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee7(data) {
     var eventType, creatorAddress, creatorName, videoId, triggers, trigger, lastEventTip, result;
@@ -82365,39 +82575,160 @@ function _handleEventTip() {
   }));
   return _handleEventTip.apply(this, arguments);
 }
+function handleAgentChat(_x9) {
+  return _handleAgentChat.apply(this, arguments);
+} // ─── STARTUP ──────────────────────────────────────────
+// Initialize wallet jika seed phrase sudah tersimpan
+function _handleAgentChat() {
+  _handleAgentChat = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee8(data) {
+    var userMessage, _data$history, history, stats, settings, rules, response, actionResult, _response$action, type, params, result, allRules, deleted, _iterator2, _step2, rule, _result, _t5, _t6;
+    return background_regenerator().w(function (_context8) {
+      while (1) switch (_context8.p = _context8.n) {
+        case 0:
+          userMessage = data.message, _data$history = data.history, history = _data$history === void 0 ? [] : _data$history; // Gather context for the AI
+          _context8.n = 1;
+          return background_storage.getStats();
+        case 1:
+          stats = _context8.v;
+          _context8.n = 2;
+          return background_storage.getSettings();
+        case 2:
+          settings = _context8.v;
+          _context8.n = 3;
+          return agent.getRules();
+        case 3:
+          rules = _context8.v;
+          _context8.n = 4;
+          return agent.chat(userMessage, {
+            stats: stats,
+            settings: settings,
+            rules: rules,
+            history: history
+          });
+        case 4:
+          response = _context8.v;
+          // Execute action if the AI returned one
+          actionResult = null;
+          if (!response.action) {
+            _context8.n = 22;
+            break;
+          }
+          _response$action = response.action, type = _response$action.type, params = _response$action.params;
+          _t5 = type;
+          _context8.n = _t5 === 'create_rule' ? 5 : _t5 === 'delete_all_rules' ? 7 : _t5 === 'delete_rule' ? 17 : _t5 === 'update_settings' ? 19 : 22;
+          break;
+        case 5:
+          _context8.n = 6;
+          return agent.createRule(params);
+        case 6:
+          result = _context8.v;
+          actionResult = result.success ? "\u2705 Rule created: ".concat(params.ratePerMinute, " ").concat(params.token || 'USDT', "/min on ").concat(params.network || 'polygon') : "\u274C ".concat(result.error);
+          return _context8.a(3, 22);
+        case 7:
+          _context8.n = 8;
+          return agent.getRules();
+        case 8:
+          allRules = _context8.v;
+          deleted = 0;
+          _iterator2 = background_createForOfIteratorHelper(allRules);
+          _context8.p = 9;
+          _iterator2.s();
+        case 10:
+          if ((_step2 = _iterator2.n()).done) {
+            _context8.n = 13;
+            break;
+          }
+          rule = _step2.value;
+          if (!rule.isActive) {
+            _context8.n = 12;
+            break;
+          }
+          _context8.n = 11;
+          return agent.deleteRule(rule.id);
+        case 11:
+          deleted++;
+        case 12:
+          _context8.n = 10;
+          break;
+        case 13:
+          _context8.n = 15;
+          break;
+        case 14:
+          _context8.p = 14;
+          _t6 = _context8.v;
+          _iterator2.e(_t6);
+        case 15:
+          _context8.p = 15;
+          _iterator2.f();
+          return _context8.f(15);
+        case 16:
+          actionResult = "\u2705 Deleted ".concat(deleted, " rule(s)");
+          return _context8.a(3, 22);
+        case 17:
+          _context8.n = 18;
+          return agent.deleteRule(params.ruleId);
+        case 18:
+          _result = _context8.v;
+          actionResult = _result.success ? '✅ Rule deleted' : "\u274C ".concat(_result.error);
+          return _context8.a(3, 22);
+        case 19:
+          _context8.n = 20;
+          return background_storage.updateSettings(params);
+        case 20:
+          _context8.n = 21;
+          return agent.initAI();
+        case 21:
+          actionResult = "\u2705 Settings updated: ".concat(Object.entries(params).map(function (_ref2) {
+            var _ref3 = background_slicedToArray(_ref2, 2),
+              k = _ref3[0],
+              v = _ref3[1];
+            return "".concat(k, "=").concat(v);
+          }).join(', '));
+          return _context8.a(3, 22);
+        case 22:
+          return _context8.a(2, {
+            message: response.message,
+            action: response.action,
+            actionResult: actionResult
+          });
+      }
+    }, _callee8, null, [[9, 14, 15, 16]]);
+  }));
+  return _handleAgentChat.apply(this, arguments);
+}
 function startup() {
   return _startup.apply(this, arguments);
 }
 function _startup() {
-  _startup = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee8() {
-    var settings, data, _t5;
-    return background_regenerator().w(function (_context8) {
-      while (1) switch (_context8.p = _context8.n) {
+  _startup = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee9() {
+    var settings, data, _t7;
+    return background_regenerator().w(function (_context9) {
+      while (1) switch (_context9.p = _context9.n) {
         case 0:
           console.log('[Agent] Rumble Auto-Tip Agent starting...');
-          _context8.n = 1;
+          _context9.n = 1;
           return background_storage.getSettings();
         case 1:
-          settings = _context8.v;
-          _context8.n = 2;
+          settings = _context9.v;
+          _context9.n = 2;
           return chrome.storage.local.get('encryptedSeed');
         case 2:
-          data = _context8.v;
+          data = _context9.v;
           if (!data.encryptedSeed) {
-            _context8.n = 6;
+            _context9.n = 6;
             break;
           }
-          _context8.p = 3;
-          _context8.n = 4;
+          _context9.p = 3;
+          _context9.n = 4;
           return wallet.initializeFromStorage();
         case 4:
           console.log('[Agent] Wallet restored from storage');
-          _context8.n = 6;
+          _context9.n = 6;
           break;
         case 5:
-          _context8.p = 5;
-          _t5 = _context8.v;
-          console.warn('[Agent] Could not restore wallet:', _t5.message);
+          _context9.p = 5;
+          _t7 = _context9.v;
+          console.warn('[Agent] Could not restore wallet:', _t7.message);
         case 6:
           // Set daily spending alarm — reset setiap tengah malam
           chrome.alarms.create('resetDailySpending', {
@@ -82405,9 +82736,9 @@ function _startup() {
             periodInMinutes: 24 * 60
           });
         case 7:
-          return _context8.a(2);
+          return _context9.a(2);
       }
-    }, _callee8, null, [[3, 5]]);
+    }, _callee9, null, [[3, 5]]);
   }));
   return _startup.apply(this, arguments);
 }

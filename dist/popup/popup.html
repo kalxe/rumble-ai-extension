@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=380">
+  <meta name="viewport" content="width=400">
   <title>Rumble Auto-Tip</title>
   <link rel="stylesheet" href="popup.css">
 </head>
@@ -31,7 +31,7 @@
 
     <!-- Tab Content -->
     <main class="content">
-      
+
       <!-- Dashboard Tab -->
       <section id="dashboard" class="tab-content active">
         <div class="stats-grid">
@@ -145,9 +145,30 @@
 
       <!-- Agent Tab -->
       <section id="agent" class="tab-content">
+        <!-- AI Chat Assistant -->
+        <div class="section">
+          <h3 class="section-title">AI Assistant</h3>
+          <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-msg bot">
+                <div class="chat-avatar">🤖</div>
+                <div class="chat-bubble">Hi! I'm your tipping assistant. I can help you set up rules, check stats, or manage your tips. Try:<br><br>
+                  <em>"Tip $0.05/min for all creators on Polygon"</em><br>
+                  <em>"Show my rules"</em><br>
+                  <em>"Set daily budget to $20"</em>
+                </div>
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything..." autocomplete="off">
+              <button class="chat-send" id="chatSend" title="Send">▶</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Agent Decision Log -->
         <div class="section">
-          <h3 class="section-title">Agent Decision Log</h3>
+          <h3 class="section-title">Decision Log</h3>
           <div id="agentLog" class="debug-console">
             <p class="muted" style="padding: 8px;">No decisions yet. Watch a video to see the agent in action.</p>
           </div>
@@ -157,7 +178,7 @@
         <!-- Community Tipping Pool -->
         <div class="section">
           <h3 class="section-title">Community Tipping Pool</h3>
-          <p class="test-description">Contribute to a shared pool that gets distributed to your top watched creators based on engagement.</p>
+          <p class="test-description">Contribute to a shared pool that gets distributed to your top watched creators.</p>
           <div class="test-status-grid">
             <div class="test-status-item">
               <span class="test-label">Pool Balance</span>
@@ -197,7 +218,7 @@
             <label>Creator Address</label>
             <input type="text" id="splitCreatorAddr" class="input" placeholder="0x...">
           </div>
-          <div class="form-row">
+          <div class="form-row" style="margin-top: 10px;">
             <div class="form-group">
               <label>Total Amount ($)</label>
               <input type="number" id="splitAmount" class="input" value="1.00" min="0.10" step="0.10">
@@ -207,11 +228,11 @@
               <input type="number" id="splitCreatorPct" class="input" value="80" min="10" max="100">
             </div>
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-top: 10px;">
             <label>Collaborator Address (optional)</label>
             <input type="text" id="splitCollabAddr" class="input" placeholder="0x... (gets remaining %)">
           </div>
-          <button class="btn btn-primary btn-full" id="sendSplitTip">Send Split Tip</button>
+          <button class="btn btn-primary btn-full" id="sendSplitTip" style="margin-top: 12px;">Send Split Tip</button>
         </div>
       </section>
 
@@ -224,7 +245,7 @@
               <label>Seed Phrase (24 words)</label>
               <textarea id="seedPhrase" class="input textarea" rows="3" placeholder="Enter your seed phrase or generate a new one..."></textarea>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-top: 12px;">
               <label>Networks</label>
               <div class="checkbox-group">
                 <label class="checkbox-label">
@@ -241,7 +262,7 @@
                 </label>
               </div>
             </div>
-            <div class="btn-group">
+            <div class="btn-group" style="margin-top: 14px;">
               <button class="btn btn-secondary" id="generateSeed">Generate New</button>
               <button class="btn btn-primary" id="initWallet">Initialize Wallet</button>
             </div>
@@ -253,13 +274,15 @@
 
         <div class="section">
           <h3 class="section-title">Spending Limits</h3>
-          <div class="form-group">
-            <label>Max Daily Spend ($)</label>
-            <input type="number" id="maxDailySpend" class="input" value="50" min="1" max="10000">
-          </div>
-          <div class="form-group">
-            <label>Max Tip Per Session ($)</label>
-            <input type="number" id="maxTipPerSession" class="input" value="5" min="0.01" max="1000">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max Daily Spend ($)</label>
+              <input type="number" id="maxDailySpend" class="input" value="50" min="1" max="10000">
+            </div>
+            <div class="form-group">
+              <label>Max Tip / Session ($)</label>
+              <input type="number" id="maxTipPerSession" class="input" value="5" min="0.01" max="1000">
+            </div>
           </div>
         </div>
 
@@ -280,12 +303,12 @@
 
         <div class="section">
           <h3 class="section-title">AI Agent (Optional)</h3>
-          <p class="test-description">Enable AI-powered tipping decisions using GPT-4o-mini. The agent analyzes watch context and adjusts tip amounts intelligently.</p>
+          <p class="test-description">Enable AI-powered tipping decisions using GPT-4o-mini.</p>
           <div class="form-group">
             <label>OpenAI API Key</label>
             <input type="password" id="openaiApiKey" class="input" placeholder="sk-...">
           </div>
-          <div class="checkbox-group">
+          <div class="checkbox-group" style="margin-top: 10px;">
             <label class="checkbox-label">
               <input type="checkbox" id="aiAgentEnabled" checked> Enable AI Reasoning
             </label>
@@ -294,13 +317,12 @@
 
         <button class="btn btn-primary btn-full" id="saveSettings">Save Settings</button>
 
-        <div class="section" style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
-          <h3 class="section-title" style="color: #ff4d4d;">Danger Zone</h3>
-          <p class="test-description">Clear all tip history, wallet data, and watch sessions. Settings will be preserved.</p>
+        <div class="section danger-zone">
+          <h3 class="section-title">Danger Zone</h3>
+          <p class="test-description">Clear all tip history, wallet data, and watch sessions.</p>
           <button class="btn btn-danger btn-full" id="resetData">Reset All Data</button>
         </div>
       </section>
-
 
     </main>
 

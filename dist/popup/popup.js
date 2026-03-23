@@ -3,6 +3,9 @@
 // ═══════════════════════════════════════════════════════════
 // Handles all UI interactions and communicates with background.js
 
+// ─── CHAT STATE ─────────────────────────────────────
+const chatHistory = []; // { role: 'user'|'assistant', content: string }
+
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   loadDashboard();
@@ -11,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadAgentTab();
   loadSettings();
   setupEventListeners();
+  setupChat();
 });
 
 // ─── TAB NAVIGATION ────────────────────────────────
@@ -528,6 +532,124 @@ function setupEventListeners() {
       alert('Settings saved!');
     }
   });
+}
+
+// ─── AI CHAT ────────────────────────────────────
+function setupChat() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSend');
+
+  if (!input || !sendBtn) return;
+
+  sendBtn.addEventListener('click', () => sendChatMessage());
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  // Clear input
+  input.value = '';
+
+  // Add user message to UI
+  appendChatMessage('user', message);
+
+  // Add to history
+  chatHistory.push({ role: 'user', content: message });
+
+  // Show typing indicator
+  const typingEl = showTyping();
+
+  // Disable send button
+  const sendBtn = document.getElementById('chatSend');
+  sendBtn.disabled = true;
+
+  try {
+    // Send to background
+    const response = await sendMessage('AGENT_CHAT', {
+      message,
+      history: chatHistory.slice(-16), // Keep last 16 messages for context
+    });
+
+    // Remove typing indicator
+    typingEl.remove();
+
+    if (response) {
+      // Build response text
+      let displayMsg = response.message || 'No response';
+
+      // Add action result if any
+      let actionHtml = '';
+      if (response.actionResult) {
+        actionHtml = `<span class="action-result">${response.actionResult}</span>`;
+      }
+
+      appendChatMessage('bot', displayMsg, actionHtml);
+
+      // Add to history
+      chatHistory.push({ role: 'assistant', content: response.message });
+
+      // Keep history manageable
+      while (chatHistory.length > 20) {
+        chatHistory.shift();
+      }
+
+      // Refresh UI if action was taken
+      if (response.action) {
+        loadRules();
+        loadDashboard();
+        loadAgentTab();
+      }
+    }
+  } catch (err) {
+    typingEl.remove();
+    appendChatMessage('bot', 'Sorry, something went wrong. Please try again.');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendChatMessage(type, text, extraHtml = '') {
+  const container = document.getElementById('chatMessages');
+  const msgEl = document.createElement('div');
+  msgEl.className = `chat-msg ${type === 'user' ? 'user' : 'bot'}`;
+
+  const avatar = type === 'user' ? '👤' : '🤖';
+
+  // Convert newlines to <br> for display
+  const formattedText = text.replace(/\n/g, '<br>');
+
+  msgEl.innerHTML = `
+    <div class="chat-avatar">${avatar}</div>
+    <div class="chat-bubble">${formattedText}${extraHtml}</div>
+  `;
+
+  container.appendChild(msgEl);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chatMessages');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg bot';
+  typingEl.innerHTML = `
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-typing">
+      <span></span><span></span><span></span>
+    </div>
+  `;
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+  return typingEl;
 }
 
 // ─── HELPERS ───────────────────────────────────────

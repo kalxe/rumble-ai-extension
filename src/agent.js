@@ -444,4 +444,184 @@ Should I send this tip? Respond with JSON only.`;
     }
     return { error: 'Rule not found' };
   }
+
+  // ─── AI CHAT ──────────────────────────────────────
+  // Conversational AI that can create/modify rules, show stats,
+  // and answer questions via natural language.
+  async chat(userMessage, context = {}) {
+    if (!this.apiKey) {
+      return this.chatFallback(userMessage, context);
+    }
+
+    const rules = await this.getRules();
+    const activeRules = rules.filter(r => r.isActive);
+    const stats = context.stats || {};
+    const settings = context.settings || {};
+
+    const chatSystemPrompt = `You are RumbleTipAI Assistant, a helpful AI inside a Chrome extension that auto-tips Rumble.com video creators with cryptocurrency.
+
+You can help users:
+1. Create tipping rules
+2. Delete/modify rules
+3. Check stats and spending
+4. Update settings (budget, preferences)
+5. Answer questions about the extension
+
+Current state:
+- Active rules: ${activeRules.length > 0 ? activeRules.map(r => `${r.creatorName || r.creatorAddress} @ ${r.ratePerMinute} ${r.token}/min on ${r.network}, min ${r.minWatchMinutes}m, max ${r.maxTipAmount}`).join('; ') : 'None'}
+- Total tips sent: ${stats.totalTips || 0}
+- Today spent: $${(stats.todaySpent || 0).toFixed(2)} / $${settings.maxDailySpend || 50} daily limit
+- Total amount: $${(stats.totalAmount || 0).toFixed(2)}
+- AI enabled: ${this.aiEnabled ? 'Yes' : 'No'}
+- Default network: ${settings.defaultNetwork || 'polygon'}
+
+IMPORTANT: Always respond with a JSON object:
+{
+  "message": "Your friendly response to the user",
+  "action": null or one of the action objects below
+}
+
+Available actions:
+1. Create rule:
+   { "type": "create_rule", "params": { "creatorAddress": "*", "ratePerMinute": 0.02, "token": "USDT", "network": "polygon", "minWatchMinutes": 3, "maxTipAmount": 5 } }
+
+2. Delete all rules:
+   { "type": "delete_all_rules" }
+
+3. Delete specific rule:
+   { "type": "delete_rule", "params": { "ruleId": "rule_xxx" } }
+
+4. Update settings:
+   { "type": "update_settings", "params": { "maxDailySpend": 20 } }
+
+5. No action (info only):
+   null
+
+Rules for responding:
+- Be concise and friendly
+- Respond in the same language as the user (if they write in Indonesian, respond in Indonesian)
+- When creating rules, confirm the parameters clearly
+- If ambiguous, ask for clarification
+- Valid tokens: USDT, USAT, XAUT, BTC
+- Valid networks: polygon, arbitrum, ethereum, bitcoin
+- Default to USDT on polygon if not specified
+- Always respond with JSON only`;
+
+    try {
+      const response = await fetch(AI_CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: AI_CONFIG.model,
+          messages: [
+            { role: 'system', content: chatSystemPrompt },
+            ...(context.history || []),
+            { role: 'user', content: userMessage },
+          ],
+          max_tokens: 400,
+          temperature: 0.5,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      // Parse JSON response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          message: parsed.message || content,
+          action: parsed.action || null,
+        };
+      }
+
+      return { message: content, action: null };
+    } catch (error) {
+      console.warn('[Agent Chat] LLM call failed:', error.message);
+      return this.chatFallback(userMessage, context);
+    }
+  }
+
+  // ─── CHAT FALLBACK (no API key) ─────────────────
+  // Simple pattern matching for basic commands when AI is unavailable.
+  chatFallback(userMessage, context = {}) {
+    const msg = userMessage.toLowerCase().trim();
+    const stats = context.stats || {};
+    const settings = context.settings || {};
+
+    // Create rule patterns
+    const tipMatch = msg.match(/tip\s+\$?([\d.]+)\s*(?:\/|\s*per\s*)(?:min|minute|menit)/i);
+    if (tipMatch) {
+      const rate = parseFloat(tipMatch[1]);
+      const maxMatch = msg.match(/max\s+\$?([\d.]+)/i);
+      const maxTip = maxMatch ? parseFloat(maxMatch[1]) : 5;
+      const network = msg.includes('arbitrum') ? 'arbitrum' : msg.includes('ethereum') ? 'ethereum' : msg.includes('bitcoin') ? 'bitcoin' : 'polygon';
+      const token = msg.includes('xaut') ? 'XAUT' : msg.includes('usat') ? 'USAT' : msg.includes('btc') ? 'BTC' : 'USDT';
+
+      return {
+        message: `Creating rule: $${rate} ${token}/min, max $${maxTip}, on ${network}.`,
+        action: {
+          type: 'create_rule',
+          params: {
+            creatorAddress: '*',
+            ratePerMinute: rate,
+            token,
+            network,
+            minWatchMinutes: 3,
+            maxTipAmount: maxTip,
+          }
+        }
+      };
+    }
+
+    // Show rules
+    if (msg.includes('rule') && (msg.includes('show') || msg.includes('list') || msg.includes('lihat') || msg.includes('tampil'))) {
+      const rules = context.rules || [];
+      const active = rules.filter(r => r.isActive);
+      if (active.length === 0) {
+        return { message: 'No active rules. Try: "tip $0.02/min on polygon"', action: null };
+      }
+      const list = active.map(r => `• ${r.creatorName || 'All'}: $${r.ratePerMinute} ${r.token}/min, max $${r.maxTipAmount} on ${r.network}`).join('\n');
+      return { message: `Active rules:\n${list}`, action: null };
+    }
+
+    // Delete rules
+    if (msg.includes('hapus') || msg.includes('delete') || msg.includes('remove') || msg.includes('clear')) {
+      if (msg.includes('semua') || msg.includes('all')) {
+        return { message: 'Deleting all rules.', action: { type: 'delete_all_rules' } };
+      }
+    }
+
+    // Stats
+    if (msg.includes('stats') || msg.includes('statistik') || msg.includes('berapa') || msg.includes('total') || msg.includes('spending')) {
+      return {
+        message: `📊 Stats:\n• Total tips: ${stats.totalTips || 0}\n• Total sent: $${(stats.totalAmount || 0).toFixed(2)}\n• Today: $${(stats.todaySpent || 0).toFixed(2)} / $${settings.maxDailySpend || 50}\n• Creators: ${stats.uniqueCreators || 0}`,
+        action: null
+      };
+    }
+
+    // Budget
+    const budgetMatch = msg.match(/budget\s+\$?([\d.]+)/i) || msg.match(/daily\s+\$?([\d.]+)/i);
+    if (budgetMatch) {
+      const amount = parseFloat(budgetMatch[1]);
+      return {
+        message: `Setting daily budget to $${amount}.`,
+        action: { type: 'update_settings', params: { maxDailySpend: amount } }
+      };
+    }
+
+    // Help / default
+    return {
+      message: `I can help you with:\n• "Tip $0.05/min on polygon" — create a rule\n• "Show my rules" — list active rules\n• "Delete all rules" — clear rules\n• "Stats" — check your tipping stats\n• "Budget $30" — set daily limit\n\n💡 For AI-powered chat, add your OpenAI API key in Settings.`,
+      action: null
+    };
+  }
 }
