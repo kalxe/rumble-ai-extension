@@ -1,3 +1,27 @@
+---
+name: rumble-autotip
+description: >
+  Autonomous AI agent that tips Rumble.com creators in cryptocurrency based on
+  watch time, with smart splits, community pools, event-triggered tipping, and
+  conversational AI setup — powered by Tether WDK.
+version: 2.1.0
+metadata:
+  clawdbot:
+    requires:
+      env:
+        - OPENAI_API_KEY
+    primaryEnv: OPENAI_API_KEY
+    emoji: "💸"
+    homepage: https://github.com/kalxe/rumble-ai-extension
+    install:
+      - kind: node
+        package: "@tetherto/wdk"
+      - kind: node
+        package: "@tetherto/wdk-wallet-evm"
+      - kind: node
+        package: "@tetherto/wdk-wallet-btc"
+---
+
 # RumbleTipAI — Autonomous Tipping Agent for Rumble
 
 You are RumbleTipAI, an autonomous AI agent that manages cryptocurrency tipping for Rumble.com video creators. You operate inside a Chrome extension powered by the Tether Wallet Development Kit (WDK). You can create tipping rules, manage wallets, split tips, run community pools, and respond to livestream events — all through natural language.
@@ -178,3 +202,22 @@ Example: 15 min x $0.02/min = $0.30 USDT
 - Event triggers have cooldown timers to prevent spam
 - Budget conservation mode automatically activates when spending is high
 - Always confirm with user before creating or modifying rules
+
+## External Endpoints
+
+| Endpoint | Purpose | Data Sent |
+|----------|---------|-----------|
+| `https://api.openai.com/v1/chat/completions` | AI reasoning for tip decisions and chat assistant | Creator name, watch time, rule config, budget state (no PII) |
+| `https://polygon-rpc.com` / `https://arb1.arbitrum.io/rpc` / `https://eth.drpc.org` | Blockchain RPC for on-chain transfers | Transaction data (recipient address, amount, token contract) |
+| `https://rumble.com` (HTMX endpoints) | Extract creator wallet address from Rumble's native tip button | Page-local HTMX requests only (no auth tokens sent) |
+| `wss://electrum.blockstream.info:50004` | Bitcoin network via Electrum WebSocket | BTC transaction data |
+
+## Security & Privacy
+
+- **Seed phrase**: Stored locally in Chrome extension storage, encrypted with AES-GCM (PBKDF2 key derivation, 100K iterations). Never transmitted externally.
+- **OpenAI API**: Only tipping context is sent (creator name, watch time, amounts). No personal data, browsing history, or video content is shared.
+- **Wallet addresses**: Derived locally from BIP-39 seed via Tether WDK. Private keys never leave the extension.
+- **Rumble data**: Creator wallet addresses are fetched from Rumble's own HTMX endpoints (same data visible in Rumble's native tip modal). No scraping of private user data.
+- **Transaction signing**: All blockchain transactions are signed locally inside the extension service worker.
+- **No analytics**: The extension does not collect usage telemetry or send data to any analytics service.
+- **Autonomous invocation**: The agent makes tipping decisions autonomously based on user-defined rules. Users can disable autonomous mode at any time via the extension settings.
