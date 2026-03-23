@@ -24,7 +24,12 @@ agent.initAI().catch(err => console.warn('[Agent] AI init skipped:', err.message
 // Content script dan popup mengirim pesan ke sini
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Harus return true untuk async response
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender)
+    .then(sendResponse)
+    .catch(err => {
+      console.error('[Agent] Message handler error:', err);
+      sendResponse({ error: err.message });
+    });
   return true;
 });
 
@@ -489,68 +494,109 @@ async function handleEventTip(data) {
 // ─── AGENT CHAT HANDLER ──────────────────────────────────
 // Processes chat messages from the AI assistant and executes actions.
 async function handleAgentChat(data) {
-  const { message: userMessage, history = [] } = data;
+  try {
+    const userMessage = data?.message || '';
+    const history = data?.history || [];
 
-  // Gather context for the AI
-  const stats = await storage.getStats();
-  const settings = await storage.getSettings();
-  const rules = await agent.getRules();
+    if (!userMessage) {
+      return { message: 'Please type a message.', action: null, actionResult: null };
+    }
 
-  const response = await agent.chat(userMessage, {
-    stats,
-    settings,
-    rules,
-    history,
-  });
+    console.log('[Chat] User:', userMessage);
 
-  // Execute action if the AI returned one
-  let actionResult = null;
+    // Gather context for the AI
+    let stats = {}, settings = {}, rules = [];
+    try {
+      stats = await storage.getStats() || {};
+      settings = await storage.getSettings() || {};
+      rules = await agent.getRules() || [];
+    } catch (e) {
+      console.warn('[Chat] Context gathering failed:', e.message);
+    }
 
-  if (response.action) {
-    const { type, params } = response.action;
+    // Call agent chat
+    const response = await agent.chat(userMessage, {
+      stats,
+      settings,
+      rules,
+      history,
+    });
 
-    switch (type) {
-      case 'create_rule': {
-        const result = await agent.createRule(params);
-        actionResult = result.success
-          ? `✅ Rule created: ${params.ratePerMinute} ${params.token || 'USDT'}/min on ${params.network || 'polygon'}`
-          : `❌ ${result.error}`;
-        break;
-      }
+    console.log('[Chat] Agent response:', JSON.stringify(response));
 
-      case 'delete_all_rules': {
-        const allRules = await agent.getRules();
-        let deleted = 0;
-        for (const rule of allRules) {
-          if (rule.isActive) {
-            await agent.deleteRule(rule.id);
-            deleted++;
+    if (!response || !response.message) {
+      return { message: 'I understood your request but could not generate a response. Try again!', action: null, actionResult: null };
+    }
+
+    // Execute action if the AI returned one
+    let actionResult = null;
+
+    if (response.action) {
+      try {
+        const { type, params } = response.action;
+
+        switch (type) {
+          case 'create_rule': {
+            const result = await agent.createRule(params || {});
+            actionResult = result.success
+              ? `✅ Rule created: ${(params.ratePerMinute || 0.02)} ${params.token || 'USDT'}/min on ${params.network || 'polygon'}`
+              : `❌ ${result.error}`;
+            break;
           }
+
+          case 'delete_all_rules': {
+            const allRules = await agent.getRules();
+            let deleted = 0;
+            for (const rule of allRules) {
+              if (rule.isActive) {
+                await agent.deleteRule(rule.id);
+                deleted++;
+              }
+            }
+            actionResult = `✅ Deleted ${deleted} rule(s)`;
+            break;
+          }
+
+          case 'delete_rule': {
+            if (params?.ruleId) {
+              const result = await agent.deleteRule(params.ruleId);
+              actionResult = result.success ? '✅ Rule deleted' : `❌ ${result.error}`;
+            }
+            break;
+          }
+
+          case 'update_settings': {
+            if (params && Object.keys(params).length > 0) {
+              await storage.updateSettings(params);
+              await agent.initAI();
+              actionResult = `✅ Settings updated: ${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ')}`;
+            }
+            break;
+          }
+
+          default:
+            console.log('[Chat] Unknown action type:', type);
         }
-        actionResult = `✅ Deleted ${deleted} rule(s)`;
-        break;
-      }
-
-      case 'delete_rule': {
-        const result = await agent.deleteRule(params.ruleId);
-        actionResult = result.success ? '✅ Rule deleted' : `❌ ${result.error}`;
-        break;
-      }
-
-      case 'update_settings': {
-        await storage.updateSettings(params);
-        await agent.initAI();
-        actionResult = `✅ Settings updated: ${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ')}`;
-        break;
+      } catch (actionErr) {
+        console.error('[Chat] Action execution failed:', actionErr);
+        actionResult = `❌ Action failed: ${actionErr.message}`;
       }
     }
-  }
 
-  return {
-    message: response.message,
-    action: response.action,
-    actionResult,
-  };
+    return {
+      message: response.message,
+      action: response.action || null,
+      actionResult,
+    };
+
+  } catch (err) {
+    console.error('[Chat] handleAgentChat error:', err);
+    return {
+      message: `Sorry, an error occurred: ${err.message}. Try a simpler command like "help".`,
+      action: null,
+      actionResult: null,
+    };
+  }
 }
 
 // ─── STARTUP ──────────────────────────────────────────

@@ -556,62 +556,66 @@ async function sendChatMessage() {
   const message = input.value.trim();
   if (!message) return;
 
-  // Clear input
+  // Clear input and disable send
   input.value = '';
+  const sendBtn = document.getElementById('chatSend');
+  sendBtn.disabled = true;
 
   // Add user message to UI
   appendChatMessage('user', message);
-
-  // Add to history
   chatHistory.push({ role: 'user', content: message });
 
   // Show typing indicator
   const typingEl = showTyping();
 
-  // Disable send button
-  const sendBtn = document.getElementById('chatSend');
-  sendBtn.disabled = true;
-
   try {
-    // Send to background
-    const response = await sendMessage('AGENT_CHAT', {
-      message,
-      history: chatHistory.slice(-16), // Keep last 16 messages for context
-    });
+    // Send to background with timeout
+    const response = await Promise.race([
+      sendMessage('AGENT_CHAT', {
+        message,
+        history: chatHistory.slice(-16),
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+    ]);
 
-    // Remove typing indicator
-    typingEl.remove();
+    // Remove typing
+    if (typingEl.parentNode) typingEl.remove();
 
-    if (response) {
-      // Build response text
-      let displayMsg = response.message || 'No response';
+    // Parse response
+    let displayMsg = 'Sorry, I could not process that. Try "help" for available commands.';
+    let actionHtml = '';
 
-      // Add action result if any
-      let actionHtml = '';
+    if (response && typeof response === 'object') {
+      displayMsg = response.message || response.error || displayMsg;
+
       if (response.actionResult) {
         actionHtml = `<span class="action-result">${response.actionResult}</span>`;
       }
 
-      appendChatMessage('bot', displayMsg, actionHtml);
-
-      // Add to history
-      chatHistory.push({ role: 'assistant', content: response.message });
+      // Add to chat history
+      chatHistory.push({ role: 'assistant', content: displayMsg });
 
       // Keep history manageable
-      while (chatHistory.length > 20) {
-        chatHistory.shift();
-      }
+      while (chatHistory.length > 20) chatHistory.shift();
 
       // Refresh UI if action was taken
       if (response.action) {
-        loadRules();
-        loadDashboard();
-        loadAgentTab();
+        setTimeout(() => {
+          loadRules();
+          loadDashboard();
+        }, 300);
       }
     }
+
+    appendChatMessage('bot', displayMsg, actionHtml);
+
   } catch (err) {
-    typingEl.remove();
-    appendChatMessage('bot', 'Sorry, something went wrong. Please try again.');
+    if (typingEl.parentNode) typingEl.remove();
+
+    const errorMsg = err.message === 'timeout'
+      ? 'Request timed out. Make sure the extension is loaded correctly and try again.'
+      : 'Something went wrong. Try a simpler command like "help".';
+    appendChatMessage('bot', errorMsg);
   }
 
   sendBtn.disabled = false;

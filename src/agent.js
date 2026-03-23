@@ -449,7 +449,9 @@ Should I send this tip? Respond with JSON only.`;
   // Conversational AI that can create/modify rules, show stats,
   // and answer questions via natural language.
   async chat(userMessage, context = {}) {
+    try {
     if (!this.apiKey) {
+      console.log('[Agent Chat] No API key, using fallback');
       return this.chatFallback(userMessage, context);
     }
 
@@ -547,6 +549,10 @@ Rules for responding:
     } catch (error) {
       console.warn('[Agent Chat] LLM call failed:', error.message);
       return this.chatFallback(userMessage, context);
+    }
+    } catch (outerErr) {
+      console.error('[Agent Chat] Unexpected error:', outerErr);
+      return { message: `Error: ${outerErr.message}. Try "help" for commands.`, action: null };
     }
   }
 

@@ -52719,20 +52719,23 @@ var AgentEngine = /*#__PURE__*/function () {
           jsonMatch,
           parsed,
           _args9 = arguments,
-          _t10;
+          _t10,
+          _t11;
         return agent_regenerator().w(function (_context9) {
           while (1) switch (_context9.p = _context9.n) {
             case 0:
               context = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {};
+              _context9.p = 1;
               if (this.apiKey) {
-                _context9.n = 1;
+                _context9.n = 2;
                 break;
               }
+              console.log('[Agent Chat] No API key, using fallback');
               return _context9.a(2, this.chatFallback(userMessage, context));
-            case 1:
-              _context9.n = 2;
-              return this.getRules();
             case 2:
+              _context9.n = 3;
+              return this.getRules();
+            case 3:
               rules = _context9.v;
               activeRules = rules.filter(function (r) {
                 return r.isActive;
@@ -52742,8 +52745,8 @@ var AgentEngine = /*#__PURE__*/function () {
               chatSystemPrompt = "You are RumbleTipAI Assistant, a helpful AI inside a Chrome extension that auto-tips Rumble.com video creators with cryptocurrency.\n\nYou can help users:\n1. Create tipping rules\n2. Delete/modify rules\n3. Check stats and spending\n4. Update settings (budget, preferences)\n5. Answer questions about the extension\n\nCurrent state:\n- Active rules: ".concat(activeRules.length > 0 ? activeRules.map(function (r) {
                 return "".concat(r.creatorName || r.creatorAddress, " @ ").concat(r.ratePerMinute, " ").concat(r.token, "/min on ").concat(r.network, ", min ").concat(r.minWatchMinutes, "m, max ").concat(r.maxTipAmount);
               }).join('; ') : 'None', "\n- Total tips sent: ").concat(stats.totalTips || 0, "\n- Today spent: $").concat((stats.todaySpent || 0).toFixed(2), " / $").concat(settings.maxDailySpend || 50, " daily limit\n- Total amount: $").concat((stats.totalAmount || 0).toFixed(2), "\n- AI enabled: ").concat(this.aiEnabled ? 'Yes' : 'No', "\n- Default network: ").concat(settings.defaultNetwork || 'polygon', "\n\nIMPORTANT: Always respond with a JSON object:\n{\n  \"message\": \"Your friendly response to the user\",\n  \"action\": null or one of the action objects below\n}\n\nAvailable actions:\n1. Create rule:\n   { \"type\": \"create_rule\", \"params\": { \"creatorAddress\": \"*\", \"ratePerMinute\": 0.02, \"token\": \"USDT\", \"network\": \"polygon\", \"minWatchMinutes\": 3, \"maxTipAmount\": 5 } }\n\n2. Delete all rules:\n   { \"type\": \"delete_all_rules\" }\n\n3. Delete specific rule:\n   { \"type\": \"delete_rule\", \"params\": { \"ruleId\": \"rule_xxx\" } }\n\n4. Update settings:\n   { \"type\": \"update_settings\", \"params\": { \"maxDailySpend\": 20 } }\n\n5. No action (info only):\n   null\n\nRules for responding:\n- Be concise and friendly\n- Respond in the same language as the user (if they write in Indonesian, respond in Indonesian)\n- When creating rules, confirm the parameters clearly\n- If ambiguous, ask for clarification\n- Valid tokens: USDT, USAT, XAUT, BTC\n- Valid networks: polygon, arbitrum, ethereum, bitcoin\n- Default to USDT on polygon if not specified\n- Always respond with JSON only");
-              _context9.p = 3;
-              _context9.n = 4;
+              _context9.p = 4;
+              _context9.n = 5;
               return fetch(AI_CONFIG.apiUrl, {
                 method: 'POST',
                 headers: {
@@ -52763,22 +52766,22 @@ var AgentEngine = /*#__PURE__*/function () {
                   temperature: 0.5
                 })
               });
-            case 4:
+            case 5:
               response = _context9.v;
               if (response.ok) {
-                _context9.n = 5;
+                _context9.n = 6;
                 break;
               }
               throw new Error("API error: ".concat(response.status));
-            case 5:
-              _context9.n = 6;
-              return response.json();
             case 6:
+              _context9.n = 7;
+              return response.json();
+            case 7:
               data = _context9.v;
               content = ((_data$choices2 = data.choices) === null || _data$choices2 === void 0 || (_data$choices2 = _data$choices2[0]) === null || _data$choices2 === void 0 || (_data$choices2 = _data$choices2.message) === null || _data$choices2 === void 0 ? void 0 : _data$choices2.content) || ''; // Parse JSON response
               jsonMatch = content.match(/\{[\s\S]*\}/);
               if (!jsonMatch) {
-                _context9.n = 7;
+                _context9.n = 8;
                 break;
               }
               parsed = JSON.parse(jsonMatch[0]);
@@ -52786,18 +52789,28 @@ var AgentEngine = /*#__PURE__*/function () {
                 message: parsed.message || content,
                 action: parsed.action || null
               });
-            case 7:
+            case 8:
               return _context9.a(2, {
                 message: content,
                 action: null
               });
-            case 8:
-              _context9.p = 8;
+            case 9:
+              _context9.p = 9;
               _t10 = _context9.v;
               console.warn('[Agent Chat] LLM call failed:', _t10.message);
               return _context9.a(2, this.chatFallback(userMessage, context));
+            case 10:
+              _context9.p = 10;
+              _t11 = _context9.v;
+              console.error('[Agent Chat] Unexpected error:', _t11);
+              return _context9.a(2, {
+                message: "Error: ".concat(_t11.message, ". Try \"help\" for commands."),
+                action: null
+              });
+            case 11:
+              return _context9.a(2);
           }
-        }, _callee9, this, [[3, 8]]);
+        }, _callee9, this, [[4, 9], [1, 10]]);
       }));
       function chat(_x8) {
         return _chat.apply(this, arguments);
@@ -81907,7 +81920,12 @@ agent.initAI()["catch"](function (err) {
 // Content script dan popup mengirim pesan ke sini
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   // Harus return true untuk async response
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender).then(sendResponse)["catch"](function (err) {
+    console.error('[Agent] Message handler error:', err);
+    sendResponse({
+      error: err.message
+    });
+  });
   return true;
 });
 function handleMessage(_x, _x2) {
@@ -82581,118 +82599,204 @@ function handleAgentChat(_x9) {
 // Initialize wallet jika seed phrase sudah tersimpan
 function _handleAgentChat() {
   _handleAgentChat = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee8(data) {
-    var userMessage, _data$history, history, stats, settings, rules, response, actionResult, _response$action, type, params, result, allRules, deleted, _iterator2, _step2, rule, _result, _t5, _t6;
+    var userMessage, history, stats, settings, rules, response, actionResult, _response$action, type, params, result, allRules, deleted, _iterator2, _step2, rule, _result, _t5, _t6, _t7, _t8, _t9, _t0, _t1, _t10;
     return background_regenerator().w(function (_context8) {
       while (1) switch (_context8.p = _context8.n) {
         case 0:
-          userMessage = data.message, _data$history = data.history, history = _data$history === void 0 ? [] : _data$history; // Gather context for the AI
-          _context8.n = 1;
-          return background_storage.getStats();
+          _context8.p = 0;
+          userMessage = (data === null || data === void 0 ? void 0 : data.message) || '';
+          history = (data === null || data === void 0 ? void 0 : data.history) || [];
+          if (userMessage) {
+            _context8.n = 1;
+            break;
+          }
+          return _context8.a(2, {
+            message: 'Please type a message.',
+            action: null,
+            actionResult: null
+          });
         case 1:
-          stats = _context8.v;
-          _context8.n = 2;
-          return background_storage.getSettings();
-        case 2:
-          settings = _context8.v;
+          console.log('[Chat] User:', userMessage);
+
+          // Gather context for the AI
+          stats = {}, settings = {}, rules = [];
+          _context8.p = 2;
           _context8.n = 3;
-          return agent.getRules();
+          return background_storage.getStats();
         case 3:
-          rules = _context8.v;
-          _context8.n = 4;
+          _t5 = _context8.v;
+          if (_t5) {
+            _context8.n = 4;
+            break;
+          }
+          _t5 = {};
+        case 4:
+          stats = _t5;
+          _context8.n = 5;
+          return background_storage.getSettings();
+        case 5:
+          _t6 = _context8.v;
+          if (_t6) {
+            _context8.n = 6;
+            break;
+          }
+          _t6 = {};
+        case 6:
+          settings = _t6;
+          _context8.n = 7;
+          return agent.getRules();
+        case 7:
+          _t7 = _context8.v;
+          if (_t7) {
+            _context8.n = 8;
+            break;
+          }
+          _t7 = [];
+        case 8:
+          rules = _t7;
+          _context8.n = 10;
+          break;
+        case 9:
+          _context8.p = 9;
+          _t8 = _context8.v;
+          console.warn('[Chat] Context gathering failed:', _t8.message);
+        case 10:
+          _context8.n = 11;
           return agent.chat(userMessage, {
             stats: stats,
             settings: settings,
             rules: rules,
             history: history
           });
-        case 4:
+        case 11:
           response = _context8.v;
+          console.log('[Chat] Agent response:', JSON.stringify(response));
+          if (!(!response || !response.message)) {
+            _context8.n = 12;
+            break;
+          }
+          return _context8.a(2, {
+            message: 'I understood your request but could not generate a response. Try again!',
+            action: null,
+            actionResult: null
+          });
+        case 12:
           // Execute action if the AI returned one
           actionResult = null;
           if (!response.action) {
-            _context8.n = 22;
+            _context8.n = 36;
             break;
           }
+          _context8.p = 13;
           _response$action = response.action, type = _response$action.type, params = _response$action.params;
-          _t5 = type;
-          _context8.n = _t5 === 'create_rule' ? 5 : _t5 === 'delete_all_rules' ? 7 : _t5 === 'delete_rule' ? 17 : _t5 === 'update_settings' ? 19 : 22;
+          _t9 = type;
+          _context8.n = _t9 === 'create_rule' ? 14 : _t9 === 'delete_all_rules' ? 16 : _t9 === 'delete_rule' ? 26 : _t9 === 'update_settings' ? 29 : 33;
           break;
-        case 5:
-          _context8.n = 6;
-          return agent.createRule(params);
-        case 6:
+        case 14:
+          _context8.n = 15;
+          return agent.createRule(params || {});
+        case 15:
           result = _context8.v;
-          actionResult = result.success ? "\u2705 Rule created: ".concat(params.ratePerMinute, " ").concat(params.token || 'USDT', "/min on ").concat(params.network || 'polygon') : "\u274C ".concat(result.error);
-          return _context8.a(3, 22);
-        case 7:
-          _context8.n = 8;
+          actionResult = result.success ? "\u2705 Rule created: ".concat(params.ratePerMinute || 0.02, " ").concat(params.token || 'USDT', "/min on ").concat(params.network || 'polygon') : "\u274C ".concat(result.error);
+          return _context8.a(3, 34);
+        case 16:
+          _context8.n = 17;
           return agent.getRules();
-        case 8:
+        case 17:
           allRules = _context8.v;
           deleted = 0;
           _iterator2 = background_createForOfIteratorHelper(allRules);
-          _context8.p = 9;
+          _context8.p = 18;
           _iterator2.s();
-        case 10:
+        case 19:
           if ((_step2 = _iterator2.n()).done) {
-            _context8.n = 13;
+            _context8.n = 22;
             break;
           }
           rule = _step2.value;
           if (!rule.isActive) {
-            _context8.n = 12;
+            _context8.n = 21;
             break;
           }
-          _context8.n = 11;
+          _context8.n = 20;
           return agent.deleteRule(rule.id);
-        case 11:
+        case 20:
           deleted++;
-        case 12:
-          _context8.n = 10;
+        case 21:
+          _context8.n = 19;
           break;
-        case 13:
-          _context8.n = 15;
+        case 22:
+          _context8.n = 24;
           break;
-        case 14:
-          _context8.p = 14;
-          _t6 = _context8.v;
-          _iterator2.e(_t6);
-        case 15:
-          _context8.p = 15;
+        case 23:
+          _context8.p = 23;
+          _t0 = _context8.v;
+          _iterator2.e(_t0);
+        case 24:
+          _context8.p = 24;
           _iterator2.f();
-          return _context8.f(15);
-        case 16:
+          return _context8.f(24);
+        case 25:
           actionResult = "\u2705 Deleted ".concat(deleted, " rule(s)");
-          return _context8.a(3, 22);
-        case 17:
-          _context8.n = 18;
+          return _context8.a(3, 34);
+        case 26:
+          if (!(params !== null && params !== void 0 && params.ruleId)) {
+            _context8.n = 28;
+            break;
+          }
+          _context8.n = 27;
           return agent.deleteRule(params.ruleId);
-        case 18:
+        case 27:
           _result = _context8.v;
           actionResult = _result.success ? '✅ Rule deleted' : "\u274C ".concat(_result.error);
-          return _context8.a(3, 22);
-        case 19:
-          _context8.n = 20;
+        case 28:
+          return _context8.a(3, 34);
+        case 29:
+          if (!(params && Object.keys(params).length > 0)) {
+            _context8.n = 32;
+            break;
+          }
+          _context8.n = 30;
           return background_storage.updateSettings(params);
-        case 20:
-          _context8.n = 21;
+        case 30:
+          _context8.n = 31;
           return agent.initAI();
-        case 21:
+        case 31:
           actionResult = "\u2705 Settings updated: ".concat(Object.entries(params).map(function (_ref2) {
             var _ref3 = background_slicedToArray(_ref2, 2),
               k = _ref3[0],
               v = _ref3[1];
             return "".concat(k, "=").concat(v);
           }).join(', '));
-          return _context8.a(3, 22);
-        case 22:
+        case 32:
+          return _context8.a(3, 34);
+        case 33:
+          console.log('[Chat] Unknown action type:', type);
+        case 34:
+          _context8.n = 36;
+          break;
+        case 35:
+          _context8.p = 35;
+          _t1 = _context8.v;
+          console.error('[Chat] Action execution failed:', _t1);
+          actionResult = "\u274C Action failed: ".concat(_t1.message);
+        case 36:
           return _context8.a(2, {
             message: response.message,
-            action: response.action,
+            action: response.action || null,
             actionResult: actionResult
           });
+        case 37:
+          _context8.p = 37;
+          _t10 = _context8.v;
+          console.error('[Chat] handleAgentChat error:', _t10);
+          return _context8.a(2, {
+            message: "Sorry, an error occurred: ".concat(_t10.message, ". Try a simpler command like \"help\"."),
+            action: null,
+            actionResult: null
+          });
       }
-    }, _callee8, null, [[9, 14, 15, 16]]);
+    }, _callee8, null, [[18, 23, 24, 25], [13, 35], [2, 9], [0, 37]]);
   }));
   return _handleAgentChat.apply(this, arguments);
 }
@@ -82701,7 +82805,7 @@ function startup() {
 }
 function _startup() {
   _startup = background_asyncToGenerator(/*#__PURE__*/background_regenerator().m(function _callee9() {
-    var settings, data, _t7;
+    var settings, data, _t11;
     return background_regenerator().w(function (_context9) {
       while (1) switch (_context9.p = _context9.n) {
         case 0:
@@ -82727,8 +82831,8 @@ function _startup() {
           break;
         case 5:
           _context9.p = 5;
-          _t7 = _context9.v;
-          console.warn('[Agent] Could not restore wallet:', _t7.message);
+          _t11 = _context9.v;
+          console.warn('[Agent] Could not restore wallet:', _t11.message);
         case 6:
           // Set daily spending alarm — reset setiap tengah malam
           chrome.alarms.create('resetDailySpending', {
