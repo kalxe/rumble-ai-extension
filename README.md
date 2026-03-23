@@ -6,9 +6,10 @@
 # RumbleTipAI
 
 <a href="#download--install"><img alt="Download" src="https://img.shields.io/badge/-Download-85EA2D?style=for-the-badge&logo=googlechrome&logoColor=white"/></a>
-<a href="https://github.com/kalxe/rumble-ai-extension/blob/main/openclaw-skill/SKILL.md"><img alt="OpenClaw Skill" src="https://img.shields.io/badge/-OpenClaw_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
+<a href="https://clawhub.ai/Dev-me4/rumble-autotip"><img alt="ClawHub Skill" src="https://img.shields.io/badge/-ClawHub_Skill-7B61FF?style=for-the-badge&logo=openai&logoColor=white"/></a>
 <a href="#architecture"><img alt="Architecture" src="https://img.shields.io/badge/-Architecture-0078D4?style=for-the-badge&logo=diagramsdotnet&logoColor=white"/></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/-Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white"/></a>
+<a href="#chrome-web-store"><img alt="Chrome Web Store" src="https://img.shields.io/badge/-Chrome_Web_Store_(Pending)-FFC107?style=for-the-badge&logo=googlechrome&logoColor=white"/></a>
 
 **AI-powered Chrome extension that autonomously tips Rumble creators in cryptocurrency.**<br/>
 Watch videos. The agent decides. Tips land on-chain. Automatically.
@@ -51,7 +52,7 @@ Powered by **Tether WDK** &nbsp;|&nbsp; **GPT-4o-mini** &nbsp;|&nbsp; **Polygon,
 - 💸 **Budget Guards** — daily spending limits, per-session caps, duplicate protection
 - 🕵️ **Silent Wallet Detection** — extracts creator wallet via Rumble's HTMX endpoints invisibly
 - 📊 **Real-Time Dashboard** — watch badge on videos, tip notifications, 4-tab popup UI
-- 🧠 **OpenClaw Skill** — orchestrate the agent via the OpenClaw AI platform
+- 🧠 **ClawHub Skill** — published on [ClawHub](https://clawhub.ai/Dev-me4/rumble-autotip) for AI agent orchestration
 - 🎨 **Dark Theme** — clean, modern interface that matches Rumble's aesthetic
 - ⛽ **Optimized for Polygon** — micro-tips at ~$0.001 gas cost
 - 🔀 **Smart Splits** — atomically split a single tip between creator, collaborators, and causes
@@ -84,6 +85,18 @@ Tether WDK sends real on-chain tip
       ▼
 Creator (+ collaborators / causes) receives tip in their Rumble Wallet
 ```
+
+---
+
+## Chrome Web Store
+
+<div align="center">
+  <img alt="Chrome Web Store — Pending Review" src="img/soon-chrome-store.png" width="480"/>
+  <br/>
+  <sub><b>Submitted to Chrome Web Store</b> — pending review by Google. Once approved, install with one click!</sub>
+</div>
+
+<br/>
 
 ---
 
@@ -373,6 +386,8 @@ Built for the **Tether Hackathon Galactica: WDK Edition 1** (2026).
 |-------------|--------|
 | Uses WDK by Tether | ✅ `@tetherto/wdk`, `wdk-wallet-evm`, `wdk-wallet-btc` |
 | Public GitHub repo | ✅ [github.com/kalxe/rumble-ai-extension](https://github.com/kalxe/rumble-ai-extension) |
+| ClawHub Skill | ✅ [clawhub.ai/Dev-me4/rumble-autotip](https://clawhub.ai/Dev-me4/rumble-autotip) |
+| Chrome Web Store | ⏳ Submitted — pending review |
 | Apache 2.0 license | ✅ See [LICENSE](LICENSE) |
 | Clear run/test instructions | ✅ This README + in-extension Testing tab |
 | Agent architecture | ✅ AI-powered autonomous agent with LLM reasoning |
@@ -414,7 +429,7 @@ Licensed under the [Apache License, Version 2.0](LICENSE).
 
 <div align="center">
 
-**Powered by [Tether WDK](https://github.com/kalxe/rumble-ai-extension) ₮**
+**Powered by [Tether WDK](https://github.com/kalxe/rumble-ai-extension) ₮** &nbsp;|&nbsp; **Published on [ClawHub](https://clawhub.ai/Dev-me4/rumble-autotip)**
 
 *Built for the Tether Hackathon Galactica: WDK Edition 1 — 2026*
 
